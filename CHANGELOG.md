@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-03-23
+
+### Added
+
+- Added `Caronte::getTenant()` to expose the `tenant` JWT claim through the main client and facade.
+- Added a default fallback tenant payload when the claim is missing, returning `id_tenant: 0` and `name: "No tenant"`.
+
 ## [1.5.0] - 2026-03-08
 
 ### Breaking Changes

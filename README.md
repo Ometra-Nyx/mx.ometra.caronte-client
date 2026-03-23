@@ -12,6 +12,7 @@ Caronte Client is a Laravel package that provides distributed JWT authentication
 ## 🎯 Main Features
 
 - **JWT-based authentication** with automatic token renewal
+- **Tenant access from JWT claims** for multi-tenant applications
 - **Role-based access control** (RBAC) with fine-grained permissions
 - **Dual authentication model**: User tokens (JWT) + App tokens (API)
 - **Laravel middleware** for session and role validation
@@ -31,6 +32,7 @@ Caronte Client is a Laravel package that provides distributed JWT authentication
 - `equidna/laravel-toolkit >=1.0.0` (Exceptions, helpers)
 
 ### Optional
+
 - `inertiajs/inertia-laravel ^2.0` (for Inertia.js rendering)
 
 ---
@@ -174,10 +176,16 @@ $token = Caronte::getToken();
 // Get the authenticated user object from the token
 $user = Caronte::getUser();
 
+// Get the authenticated tenant object from the token
+$tenant = Caronte::getTenant();
+
 // Check if token is valid
 if (Caronte::checkToken()) {
     // User is authenticated
 }
+
+// When the tenant claim is missing, Caronte returns a default payload:
+// (object) ['id_tenant' => 0, 'name' => 'No tenant']
 ```
 
 ### Middleware Integration
@@ -263,6 +271,7 @@ OK (11 tests, 62 assertions)
 ### Breaking Changes
 
 #### Controllers
+
 All controllers have been **refactored and moved** to `src/Http/Controllers/`:
 
 - `AuthController` - Authentication flows (login, 2FA, password recovery)
@@ -273,6 +282,7 @@ All controllers have been **refactored and moved** to `src/Http/Controllers/`:
 **Action Required**: Update any external references to use the new modular controllers.
 
 #### Console Commands
+
 Command signature updated:
 
 - `caronte-client:attached-roles` → `caronte-client:attach-roles`

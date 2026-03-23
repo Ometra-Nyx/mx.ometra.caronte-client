@@ -15,6 +15,7 @@ use Ometra\Caronte\Caronte as CaronteClass;
  * Facade for the Caronte client, providing static access to authentication and user methods.
  *
  * @method static \Lcobucci\JWT\Token\Plain getToken()
+ * @method static \stdClass getTenant()
  * @method static \stdClass getUser()
  * @method static string getRouteUser()
  * @method static void saveToken(string $token_str)
