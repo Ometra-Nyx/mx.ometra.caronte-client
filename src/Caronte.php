@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Cookie;
 use Lcobucci\JWT\Token\Plain;
 use Ometra\Caronte\Models\CaronteUser;
+use Ometra\Caronte\Exceptions\TenantMissingException;
 use Equidna\Toolkit\Exceptions\UnauthorizedException;
 use Equidna\Toolkit\Helpers\RouteHelper;
 use Exception;
@@ -54,24 +55,6 @@ class Caronte
     }
 
     /**
-     * Get the tenant object from the JWT token claims.
-     */
-    public function getTenant(): stdClass
-    {
-        try {
-            $tenant = $this->getToken()->claims()->get('tenant');
-            // If tenant claim is missing, return a default tenant object with id 0 and name "No tenant"
-            return $tenant ? json_decode($tenant) : (object)['id_tenant' => 0, 'name' => 'No tenant'];
-        } catch (Exception $e) {
-            throw new UnauthorizedException(
-                message: 'No tenant provided',
-                errors: [$e->getMessage()],
-                previous: $e
-            );
-        }
-    }
-
-    /**
      * Get the user object from the JWT token claims.
      *
      * @return stdClass Decoded user object from token claims.
@@ -88,6 +71,24 @@ class Caronte
                 previous: $e
             );
         }
+    }
+
+    /**
+     * Get the tenant identifier from the user JWT claim.
+     *
+     * @return string Tenant identifier (id_tenant).
+     * @throws TenantMissingException If id_tenant is missing or invalid.
+     * @throws UnauthorizedException Propagated from getUser() when token or user claim is invalid.
+     */
+    public function getTenantId(): string
+    {
+        $user = $this->getUser();
+
+        if (!isset($user->id_tenant) || $user->id_tenant === null || $user->id_tenant === '') {
+            throw new TenantMissingException('No tenant provided');
+        }
+
+        return (string) $user->id_tenant;
     }
 
     /**
