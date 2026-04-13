@@ -275,7 +275,7 @@ class CaronteRequest
         if (config('caronte.USE_INERTIA')) {
             return inertia('auth/password-recover', [
                 'user' => $token_response->user,
-                'callback_url' => request()->get('callback_url'),
+                'callback_url' => request()->query('callback_url'),
                 'csrf_token' => csrf_token(),
                 'routes' => [
                     'passwordRecoverSubmit' => url()->current(),

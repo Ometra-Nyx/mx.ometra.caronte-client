@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Equidna\Toolkit\Exceptions\ConflictException;
 use Inertia\Inertia;
+use Exception;
 
 use Ometra\Caronte\Console\Commands\ManagementCaronte;
 use Ometra\Caronte\Console\Commands\ManagementRoles;
@@ -165,7 +166,7 @@ class CaronteServiceProvider extends ServiceProvider
                 if (Caronte::checkToken()) {
                     return Caronte::getUser();
                 }
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 return null;
             }
 

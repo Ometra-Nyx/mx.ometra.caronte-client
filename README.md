@@ -61,7 +61,7 @@ php artisan vendor:publish --tag=caronte:inertia     # Inertia components
 php artisan vendor:publish --tag=caronte-assets      # CSS/JS files
 ```
 
-For detailed instructions, see [PUBLISHING.md](./PUBLISHING.md).
+Publishing instructions are described in this section and in the release notes/changelog history.
 
 ---
 
@@ -176,16 +176,15 @@ $token = Caronte::getToken();
 // Get the authenticated user object from the token
 $user = Caronte::getUser();
 
-// Get the authenticated tenant object from the token
-$tenant = Caronte::getTenant();
+// Get the authenticated tenant id (string) from the token user claim
+$tenant = Caronte::getTenantId();
 
 // Check if token is valid
 if (Caronte::checkToken()) {
     // User is authenticated
 }
 
-// When the tenant claim is missing, Caronte returns a default payload:
-// (object) ['id_tenant' => 0, 'name' => 'No tenant']
+// If id_tenant is missing, Caronte throws TenantMissingException.
 ```
 
 ### Middleware Integration

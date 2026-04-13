@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- No changes yet.
+
+## [2.0.0] - 2026-04-13
+
+### Breaking Changes
+
+- Renamed API method `Caronte::getTenant()` to `Caronte::getTenantId()`.
+- Changed tenant access contract from tenant object payload to `id_tenant` string return value.
+- Removed fallback tenant payload (`id_tenant: 0`, `name: "No tenant"`) when tenant information is missing.
+
+### Changed
+
+- `Caronte::getTenantId()` now resolves tenant information from the `user` claim and enforces `id_tenant` presence.
+- Simplified `getTenantId()` implementation by removing redundant catch/rethrow blocks.
+- Updated facade annotations and README usage examples to use `getTenantId()`.
+
+### Fixed
+
+- Improved tenant retrieval error handling by introducing `TenantMissingException` when `id_tenant` is missing.
+- Replaced deprecated `str_contains` usage in token validation message detection with `stripos(... ) !== false` for compatibility.
+
+### Removed
+
+- Removed `PUBLISHING.md` from repository documentation set.
+
 ## [1.6.0] - 2026-03-23
 
 ### Added
@@ -15,6 +42,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a default fallback tenant payload when the claim is missing, returning `id_tenant: 0` and `name: "No tenant"`.
 
 ## [1.5.0] - 2026-03-08
+
+### Fixed
+
+- Fixed provider boot validation to avoid failing unrelated console tooling commands when `CARONTE_*` variables are not initialized yet.
+- Fixed publishing documentation env key typo: `CARONTE_ENFORCER_ISSUER` -> `CARONTE_ENFORCE_ISSUER`.
 
 ### Breaking Changes
 
@@ -40,11 +72,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `phpunit.xml.dist`
 - Added `UserController::store()` as REST alias forwarding to `create()` for route compatibility.
 - **Test Coverage**: 11 tests with 62 assertions ensure routes are properly registered and publish commands are configured correctly.
-
-### Fixed
-
-- Fixed provider boot validation to avoid failing unrelated console tooling commands when `CARONTE_*` variables are not initialized yet.
-- Fixed publishing documentation env key typo: `CARONTE_ENFORCER_ISSUER` -> `CARONTE_ENFORCE_ISSUER`.
 
 ## [1.4.0] - 2026-02-08
 

@@ -87,7 +87,7 @@ class CaronteToken
             }
 
             foreach ($e->violations() as $violation) {
-                if (str_contains(strtolower($violation->getMessage()), 'issued in the future')) {
+                if (stripos($violation->getMessage(), 'issued in the future') !== false) {
                     $issuedAt = $token->claims()->get('iat');
                     if ($issuedAt instanceof DateTimeImmutable) {
                         $nowUtc     = new DateTimeImmutable('now', new DateTimeZone('UTC'));

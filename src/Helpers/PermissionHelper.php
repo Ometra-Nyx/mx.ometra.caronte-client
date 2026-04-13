@@ -52,14 +52,14 @@ class PermissionHelper
         $roles   = array_map('trim', $roles);
         $roles[] = 'root';  //* root role is always available
 
-        if (in_array('_self', $roles) && Caronte::getRouteUser() == $user->uri_user) {
+        if (in_array('_self', $roles, true) && Caronte::getRouteUser() === $user->uri_user) {
             return true;
         }
 
         $roles_collection = collect($user->roles);
 
         return $roles_collection->contains(
-            fn($user_role) => in_array($user_role->name, $roles) && ($app_id === ($user_role->uri_application ?? $user_role->app_id))
+            fn($user_role) => in_array($user_role->name, $roles, true) && ($app_id === ($user_role->uri_application ?? $user_role->app_id))
         );
     }
 }
