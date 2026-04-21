@@ -204,11 +204,16 @@ class Caronte
         }
 
         try {
+            $tenantId = isset($user->id_tenant) && $user->id_tenant !== ''
+                ? (string) $user->id_tenant
+                : null;
+
             $local_user = CaronteUser::updateOrCreate(
                 [
                     'uri_user' => $user->uri_user
                 ],
                 [
+                    'id_tenant' => $tenantId,
                     'name'  => $user->name,
                     'email' => $user->email
                 ]
@@ -221,6 +226,7 @@ class Caronte
                         'key'       => $metadata->key,
                     ],
                     [
+                        'id_tenant' => $tenantId,
                         'value'     => $metadata->value,
                         'scope'     => $metadata->scope ?: config('caronte.APP_ID')
                     ]
