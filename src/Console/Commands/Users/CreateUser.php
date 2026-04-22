@@ -13,15 +13,15 @@
 
 namespace Ometra\Caronte\Console\Commands\Users;
 
-use Ometra\Caronte\Api\ClientApi;
 use Illuminate\Console\Command;
+use Ometra\Caronte\Api\ClientApi;
 
 class CreateUser extends Command
 {
-    protected $signature = 'caronte-client:create-user';
+    protected $signature   = 'caronte-client:create-user';
     protected $description = 'Create Users within the application';
 
-    public function handle()
+    public function handle(): int
     {
         $name  = $this->ask('Escribe el nombre del usuario:');
         $email = $this->ask('Escribe el Email del usuario:');

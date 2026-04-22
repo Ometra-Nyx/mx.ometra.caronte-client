@@ -59,7 +59,7 @@ class RoleApi extends BaseApiClient
             endpoint: 'api/app/applications/' . CaronteRoleManager::getAppId() . '/roles',
             data: [
                 'description' => $description,
-                'name' => $name,
+                'name'        => $name,
             ]
         );
     }

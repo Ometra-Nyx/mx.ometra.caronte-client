@@ -26,10 +26,11 @@ Caronte Client is a Laravel package that provides distributed JWT authentication
 
 ## 📋 Requirements
 
-- PHP `^8.0`
-- Laravel `^10.0 || ^11.0 || ^12.0`
+- PHP `^8.2`
+- Laravel `^12.0`
 - `lcobucci/jwt ^5.3` (JWT token handling)
 - `equidna/laravel-toolkit >=1.0.0` (Exceptions, helpers)
+- `equidna/bee-hive ^1.0` (Tenant resolver/context and global tenant scope)
 
 ### Optional
 

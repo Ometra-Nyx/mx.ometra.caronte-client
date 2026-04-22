@@ -20,7 +20,7 @@ class ManagementCaronte extends Command
     protected $signature = 'caronte-client:management';
     protected $description = 'Entry point for managing caronte-client commands';
 
-    public function handle()
+    public function handle(): int
     {
         $this->line('Sistema de comandos de adminitración de caronte:');
         $mainOptions = [

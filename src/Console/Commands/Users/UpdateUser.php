@@ -13,24 +13,27 @@
 
 namespace Ometra\Caronte\Console\Commands\Users;
 
-use Ometra\Caronte\Api\ClientApi;
 use Illuminate\Console\Command;
+use Ometra\Caronte\Api\ClientApi;
 
 class UpdateUser extends Command
 {
     protected $signature = 'caronte-client:update-user {uri_user} {name_user}';
     protected $description = 'Update a user within the application';
 
-    public function handle()
+    public function handle(): int
     {
-        $uri_user = $this->argument('uri_user');
+        $uri_user  = $this->argument('uri_user');
         $name_user = $this->argument('name_user');
-        $newName = $this->ask('Escribe el nuevo nombre del usuario:');
+        $newName   = $this->ask('Escribe el nuevo nombre del usuario:');
+
         $response = ClientApi::updateUser(uri_user: $uri_user, name: $newName);
+
         if (!$response['success']) {
             $this->error("Error al actualizar el usuario: " . $response['error']);
             return 1;
         }
+
         $this->info("¡Listo! El usuario '{$name_user}' ha sido actualizado exitosamente.");
 
         return 0;

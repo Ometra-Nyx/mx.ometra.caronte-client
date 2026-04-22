@@ -13,15 +13,15 @@
 
 namespace Ometra\Caronte\Console\Commands\Roles;
 
+use Illuminate\Console\Command;
 use Ometra\Caronte\CaronteRoleManager;
-use Ometra\Caronte\Console\Commands\CaronteCommand;
 
-class ShowRoles extends CaronteCommand
+class ShowRoles extends Command
 {
-    protected $signature = 'caronte-client:show-roles';
+    protected $signature   = 'caronte-client:show-roles';
     protected $description = 'Show Roles within the application';
 
-    public function executeCommand()
+    public function handle(): int
     {
         $roles = CaronteRoleManager::getRoles();
         if (empty($roles)) {

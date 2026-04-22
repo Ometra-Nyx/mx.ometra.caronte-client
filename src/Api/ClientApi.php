@@ -16,6 +16,8 @@
 
 namespace Ometra\Caronte\Api;
 
+use Equidna\BeeHive\Tenancy\TenantContext;
+
 /**
  * Handles HTTP requests for user management to the Caronte authentication server.
  *
@@ -42,10 +44,10 @@ class ClientApi extends BaseApiClient
         return self::makeRequest(
             method: 'get',
             endpoint: 'api/app/users/',
-            data: [
+            data: self::withTenantPayload([
                 'search' => $paramSearch,
                 'app_users' => $usersApp ? 'true' : 'false',
-            ]
+            ])
         );
     }
 
@@ -63,12 +65,12 @@ class ClientApi extends BaseApiClient
         return self::makeRequest(
             method: 'post',
             endpoint: 'api/app/users',
-            data: [
+            data: self::withTenantPayload([
                 'name' => $name,
                 'email' => $email,
                 'password' => $password,
                 'password_confirmation' => $password_confirmation,
-            ]
+            ])
         );
     }
 
@@ -84,7 +86,7 @@ class ClientApi extends BaseApiClient
         return self::makeRequest(
             method: 'put',
             endpoint: 'api/app/users/' . $uri_user,
-            data: ['name' => $name]
+            data: self::withTenantPayload(['name' => $name])
         );
     }
 
@@ -98,7 +100,8 @@ class ClientApi extends BaseApiClient
     {
         return self::makeRequest(
             method: 'delete',
-            endpoint: 'api/app/users/' . $uri_user
+            endpoint: 'api/app/users/' . $uri_user,
+            data: self::withTenantPayload()
         );
     }
 
@@ -112,7 +115,8 @@ class ClientApi extends BaseApiClient
     {
         return self::makeRequest(
             method: 'get',
-            endpoint: 'api/app/users/' . $uri_user . '/roles'
+            endpoint: 'api/app/users/' . $uri_user . '/roles',
+            data: self::withTenantPayload()
         );
     }
 
@@ -128,10 +132,10 @@ class ClientApi extends BaseApiClient
         return self::makeRequest(
             method: 'post',
             endpoint: 'api/app/users/roles/' . $uriApplicationRole . '/' . $uriUser,
-            data: [
+            data: self::withTenantPayload([
                 'uri_user' => $uriUser,
                 'uri_applicationRole' => $uriApplicationRole,
-            ]
+            ])
         );
     }
 
@@ -146,7 +150,24 @@ class ClientApi extends BaseApiClient
     {
         return self::makeRequest(
             method: 'delete',
-            endpoint: 'api/app/users/roles/' . $uri_applicationRole . '/' . $uri_user
+            endpoint: 'api/app/users/roles/' . $uri_applicationRole . '/' . $uri_user,
+            data: self::withTenantPayload()
         );
+    }
+
+    /**
+     * Adds tenant identifier to the request payload.
+     *
+     * @param  array<string, mixed> $data Base request payload.
+     * @return array<string, mixed>
+     */
+    private static function withTenantPayload(array $data = []): array
+    {
+        /** @var TenantContext $tenantContext */
+        $tenantContext = app(TenantContext::class);
+
+        $data['id_tenant'] = $tenantContext->get();
+
+        return $data;
     }
 }

@@ -13,15 +13,15 @@
 
 namespace Ometra\Caronte\Console\Commands\Roles;
 
+use Illuminate\Console\Command;
 use Ometra\Caronte\CaronteRoleManager;
-use Ometra\Caronte\Console\Commands\CaronteCommand;
 
-class UpdateRole extends CaronteCommand
+class UpdateRole extends Command
 {
-    protected $signature = 'caronte-client:update-role {uri_rol}';
+    protected $signature   = 'caronte-client:update-role {uri_rol}';
     protected $description = 'Update a role within the application';
 
-    public function executeCommand()
+    public function handle(): int
     {
         $uri_applicationRole = $this->argument('uri_rol');
         $description = $this->ask('Escribe la nueva descripción del rol:');

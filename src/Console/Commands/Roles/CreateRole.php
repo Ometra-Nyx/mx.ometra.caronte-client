@@ -13,15 +13,15 @@
 
 namespace Ometra\Caronte\Console\Commands\Roles;
 
+use Illuminate\Console\Command;
 use Ometra\Caronte\CaronteRoleManager;
-use Ometra\Caronte\Console\Commands\CaronteCommand;
 
-class CreateRole extends CaronteCommand
+class CreateRole extends Command
 {
-    protected $signature = 'caronte-client:create-role';
+    protected $signature   = 'caronte-client:create-role';
     protected $description = 'Create Roles within the application';
 
-    public function executeCommand()
+    public function handle(): int
     {
         $name = $this->ask('Escribe el nombre del nuevo rol:');
         $description = $this->ask('Escribe la descripción del nuevo rol:');

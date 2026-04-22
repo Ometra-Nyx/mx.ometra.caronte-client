@@ -13,15 +13,15 @@
 
 namespace Ometra\Caronte\Console\Commands\Roles;
 
+use Illuminate\Console\Command;
 use Ometra\Caronte\CaronteRoleManager;
-use Ometra\Caronte\Console\Commands\CaronteCommand;
 
-class DeleteRole extends CaronteCommand
+class DeleteRole extends Command
 {
-    protected $signature = 'caronte-client:delete-role {uri_rol}';
+    protected $signature   = 'caronte-client:delete-role {uri_rol}';
     protected $description = 'Delete a role within the application';
 
-    public function executeCommand()
+    public function handle(): int
     {
         $uri_applicationRole = $this->argument('uri_rol');
         if ($this->confirm("Seguro que deseas eliminar el rol: {$uri_applicationRole}?")) {

@@ -13,8 +13,8 @@
 
 namespace Ometra\Caronte\Console\Commands\Users;
 
-use Ometra\Caronte\Api\ClientApi;
 use Illuminate\Console\Command;
+use Ometra\Caronte\Api\ClientApi;
 
 /**
  * Removes application roles assigned to a user.
@@ -28,7 +28,7 @@ use Illuminate\Console\Command;
  */
 class DeleteRolesUser extends Command
 {
-    protected $signature = 'caronte-client:delete-user-roles {uri_user} {name_user}';
+    protected $signature   = 'caronte-client:delete-user-roles {uri_user} {name_user}';
     protected $description = 'Removes app roles that belong to the user';
 
     /**

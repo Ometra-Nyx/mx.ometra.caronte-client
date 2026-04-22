@@ -2,15 +2,15 @@
 
 namespace Ometra\Caronte\Console\Commands;
 
+use Illuminate\Console\Command;
 use Ometra\Caronte\CaronteRoleManager;
-use Ometra\Caronte\Console\Commands\CaronteCommand;
 
-class ManagementRoles extends CaronteCommand
+class ManagementRoles extends Command
 {
     protected $signature = 'caronte-client:management-roles';
     protected $description = 'Manages roles within the application';
 
-    public function executeCommand()
+    public function handle(): int
     {
         $mainOptions = [
             '0' => 'Crear nuevo rol',

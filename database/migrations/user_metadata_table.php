@@ -22,7 +22,6 @@ return new class extends Migration
 
         if (!Schema::hasTable($tableName)) {
             Schema::create($tableName, function (Blueprint $table) {
-                $table->string('id_tenant', 64)->nullable()->index();
                 $table->string('uri_user', 40);
                 $table->string('scope', 128);
                 $table->string('key', 45);
@@ -33,11 +32,6 @@ return new class extends Migration
         } else {
             Schema::table($tableName, function (Blueprint $table) use ($tableName) {
                 // Ensure columns exist and have correct types/lengths
-                if (!Schema::hasColumn($tableName, 'id_tenant')) {
-                    $table->string('id_tenant', 64)->nullable()->index();
-                } else {
-                    $table->string('id_tenant', 64)->nullable()->change();
-                }
                 if (!Schema::hasColumn($tableName, 'uri_user')) {
                     $table->string('uri_user', 40);
                 } else {

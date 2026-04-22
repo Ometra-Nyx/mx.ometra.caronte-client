@@ -226,7 +226,6 @@ class Caronte
                         'key'       => $metadata->key,
                     ],
                     [
-                        'id_tenant' => $tenantId,
                         'value'     => $metadata->value,
                         'scope'     => $metadata->scope ?: config('caronte.APP_ID')
                     ]

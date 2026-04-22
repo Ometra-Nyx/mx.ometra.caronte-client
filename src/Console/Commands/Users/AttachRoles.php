@@ -13,16 +13,16 @@
 
 namespace Ometra\Caronte\Console\Commands\Users;
 
-use Ometra\Caronte\Console\Commands\CaronteCommand;
+use Illuminate\Console\Command;
 use Ometra\Caronte\Api\ClientApi;
 use Ometra\Caronte\CaronteRoleManager;
 
-class AttachRoles extends CaronteCommand
+class AttachRoles extends Command
 {
-    protected $signature = 'caronte-client:attach-roles';
+    protected $signature   = 'caronte-client:attach-roles';
     protected $description = 'Associates a specific role with a user';
 
-    public function executeCommand()
+    public function handle(): int
     {
         $response = ClientApi::showUsers(paramSearch: '');
         $users = json_decode($response['data'], true);

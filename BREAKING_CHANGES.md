@@ -7,6 +7,8 @@
 - `Caronte::getTenant()` was renamed to `Caronte::getTenantId()`.
 - Tenant access now returns a string (`id_tenant`) instead of a tenant object payload.
 - Default fallback payload for missing tenant data was removed.
+- `equidna/bee-hive` is now a required dependency.
+- Package baseline is now PHP `^8.2` and Laravel `^12.0`.
 
 ### Why
 
@@ -51,6 +53,12 @@ try {
 ```
 
 3. Update custom wrappers and type hints from `stdClass` to `string` where applicable.
+
+4. Ensure BeeHive configuration is present in the host application and select the desired resolver.
+
+```bash
+php artisan vendor:publish --tag=bee-hive:config
+```
 
 ### Affected Surface
 

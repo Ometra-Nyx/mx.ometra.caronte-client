@@ -13,15 +13,15 @@
 
 namespace Ometra\Caronte\Console\Commands;
 
-use Ometra\Caronte\Api\ClientApi;
 use Illuminate\Console\Command;
+use Ometra\Caronte\Api\ClientApi;
 
 class ManagementUsers extends Command
 {
-    protected $signature = 'caronte-client:management-users';
+    protected $signature   = 'caronte-client:management-users';
     protected $description = 'Manages users within the application';
 
-    public function handle()
+    public function handle(): int
     {
         $mainOptions = [
             '0' => 'Crear Usuario',
@@ -85,14 +85,14 @@ class ManagementUsers extends Command
                         switch ($editOption) {
                             case '0':
                                 $this->call('caronte-client:update-user', [
-                                    'uri_user' => $selectedUserId,
+                                    'uri_user'  => $selectedUserId,
                                     'name_user' => $userName,
                                 ]);
                                 break;
 
                             case '1':
                                 $this->call('caronte-client:delete-user-roles', [
-                                    'uri_user' => $selectedUserId,
+                                    'uri_user'  => $selectedUserId,
                                     'name_user' => $userName,
                                 ]);
                                 break;

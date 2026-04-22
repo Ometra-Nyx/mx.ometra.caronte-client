@@ -13,8 +13,8 @@
 
 namespace Ometra\Caronte\Console\Commands\Users;
 
-use Ometra\Caronte\Api\ClientApi;
 use Illuminate\Console\Command;
+use Ometra\Caronte\Api\ClientApi;
 
 /**
  * Displays all roles attached to a user within the application.
@@ -25,7 +25,7 @@ use Illuminate\Console\Command;
  */
 class ShowRolesByUser extends Command
 {
-    protected $signature = 'caronte-client:show-user-roles {uri_user}';
+    protected $signature   = 'caronte-client:show-user-roles {uri_user}';
     protected $description = 'Show Roles attached by user within the application';
 
     /**
