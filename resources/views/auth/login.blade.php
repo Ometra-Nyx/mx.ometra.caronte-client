@@ -1,50 +1,41 @@
 @extends('caronte::layouts.base')
 
 @section('content')
-    <div class="container min-vh-100 d-flex justify-content-center align-items-center">
-        <div class="row w-100 justify-content-center">
-            <div class="col-md-8 col-lg-5">
+    <section class="caronte-auth">
+        <div class="caronte-auth__panel">
+            <span class="caronte-kicker">{{ data_get($branding, 'app_name', config('app.name')) }}</span>
+            <h1 class="caronte-title">{{ data_get($branding, 'headline', 'Secure access with Caronte') }}</h1>
+            <p class="caronte-copy">{{ data_get($branding, 'subheadline', 'Authenticate users and administer access from a polished package surface.') }}</p>
 
-                {{-- Tarjeta de Login --}}
-                <div class="card shadow-lg border-0 rounded-lg">
-                    <div class="card-header bg-primary text-white text-center py-4">
-                        <h3 class="font-weight-light my-2">INICIAR SESIÓN</h3>
-                    </div>
-
-                    <div class="card-body p-5">
-                        <form method="POST">
-                            @csrf
-
-                            {{-- Input Email --}}
-                            <div class="mb-3">
-                                <label for="email" class="form-label text-muted">Correo electrónico</label>
-                                <input type="email" id="email" name="email" value="{{ session('email') }}"
-                                    class="form-control form-control-lg" placeholder="nombre@ejemplo.com" required>
-                            </div>
-
-                            {{-- Input Password --}}
-                            <div class="mb-3">
-                                <label for="password" class="form-label text-muted">Contraseña</label>
-                                <input type="password" id="password" name="password" class="form-control form-control-lg"
-                                    placeholder="********" required>
-                            </div>
-
-                            {{-- Link Olvidé contraseña --}}
-                            <div class="d-flex justify-content-end mb-4">
-                                <a href="/password/recover" class="text-decoration-none small text-muted">
-                                    ¿Olvidaste tu contraseña?
-                                </a>
-                            </div>
-
-                            {{-- Botón --}}
-                            <div class="d-grid gap-2">
-                                <input type="submit" value="Entrar" class="btn btn-primary btn-lg">
-                            </div>
-                        </form>
-                    </div>
+            <div class="caronte-card">
+                <div class="caronte-card__header">
+                    <h2>Sign in</h2>
+                    <p>Use your Caronte credentials to continue.</p>
                 </div>
 
+                <form method="POST" action="{{ $routes['login'] }}" class="caronte-form">
+                    @csrf
+                    @if ($callback_url)
+                        <input type="hidden" name="callback_url" value="{{ $callback_url }}">
+                    @endif
+
+                    <div>
+                        <label for="email" class="form-label">Email</label>
+                        <input id="email" type="email" name="email" value="{{ old('email') }}" class="form-control" required autofocus>
+                    </div>
+
+                    <div>
+                        <label for="password" class="form-label">Password</label>
+                        <input id="password" type="password" name="password" class="form-control" required>
+                    </div>
+
+                    <button type="submit" class="btn caronte-btn-primary">Continue</button>
+                </form>
+
+                <div class="caronte-card__footer">
+                    <a href="{{ $routes['passwordRecoverForm'] }}">Forgot your password?</a>
+                </div>
             </div>
         </div>
-    </div>
+    </section>
 @endsection

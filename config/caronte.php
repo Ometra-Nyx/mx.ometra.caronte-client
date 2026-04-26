@@ -1,23 +1,9 @@
 <?php
 
-/**
- * Caronte Client Configuration.
- *
- * All settings are configurable via environment variables.
- * See .env.example for complete list of available options.
- *
- * PHP 8.1+
- *
- * @package   Ometra\Caronte
- * @author    Gabriel Ruelas <gruelas@gruelas.com>
- * @license   https://opensource.org/licenses/MIT MIT License
- * @link      https://github.com/Ometra-Core/mx.ometra.caronte-client Documentation
- */
-
 return [
     /*
     |--------------------------------------------------------------------------
-    | Caronte Server Configuration (Required)
+    | Caronte Server Configuration
     |--------------------------------------------------------------------------
     */
     'URL'        => env('CARONTE_URL', ''),
@@ -26,19 +12,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | JWT Token Configuration (Required for JWT verification)
+    | JWT Token Configuration
     |--------------------------------------------------------------------------
     */
     'ISSUER_ID'      => env('CARONTE_ISSUER_ID', ''),
-    'ENFORCE_ISSUER' => env('CARONTE_ENFORCE_ISSUER', true),
+    'ENFORCE_ISSUER' => env('CARONTE_ENFORCE_ISSUER', false),
 
     /*
     |--------------------------------------------------------------------------
-    | Authentication Features (Optional)
+    | Authentication Features
     |--------------------------------------------------------------------------
     */
-    'USE_2FA' => env('CARONTE_2FA', false),
-    'ALLOW_HTTP_REQUESTS' => env('CARONTE_ALLOW_HTTP_REQUESTS', false),
+    'USE_2FA'               => env('CARONTE_2FA', false),
+    'ALLOW_HTTP_REQUESTS'   => env('CARONTE_ALLOW_HTTP_REQUESTS', false),
+    'UPDATE_LOCAL_USER'     => env('CARONTE_UPDATE_LOCAL_USER', false),
+    'NOTIFICATION_DELIVERY' => env('CARONTE_NOTIFICATION_DELIVERY', 'server'),
+    'SESSION_KEY'           => env('CARONTE_SESSION_KEY', 'caronte.user_token'),
 
     /*
     |--------------------------------------------------------------------------
@@ -51,10 +40,43 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | HTTP Client
+    |--------------------------------------------------------------------------
+    */
+    'HTTP' => [
+        'timeout'     => (int) env('CARONTE_HTTP_TIMEOUT', 10),
+        'retries'     => (int) env('CARONTE_HTTP_RETRIES', 1),
+        'retry_sleep' => (int) env('CARONTE_HTTP_RETRY_SLEEP', 150),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Package Roles
+    |--------------------------------------------------------------------------
+    */
+    'roles' => [
+        'root' => 'Default super administrator role',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | User Management
     |--------------------------------------------------------------------------
     */
-    'UPDATE_LOCAL_USER' => env('CARONTE_UPDATE_LOCAL_USER', false),
+    'management' => [
+        'enabled'      => env('CARONTE_MANAGEMENT_ENABLED', true),
+        'route_prefix' => env('CARONTE_MANAGEMENT_ROUTE_PREFIX', 'caronte/management'),
+        'access_roles' => array_values(
+            array_filter(
+                array_map('trim', explode(',', (string) env('CARONTE_MANAGEMENT_ACCESS_ROLES', 'root')))
+            )
+        ),
+        'use_inertia' => env('CARONTE_MANAGEMENT_USE_INERTIA', env('CARONTE_USE_INERTIA', false)),
+        'features' => [
+            'metadata'         => env('CARONTE_MANAGEMENT_METADATA', true),
+            'profile_pictures' => env('CARONTE_MANAGEMENT_PROFILE_PICTURES', false),
+        ],
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -62,6 +84,19 @@ return [
     |--------------------------------------------------------------------------
     */
     'USE_INERTIA' => env('CARONTE_USE_INERTIA', false),
+    'ui' => [
+        'branding' => [
+            'app_name'      => env('CARONTE_UI_APP_NAME', env('APP_NAME', 'Caronte')),
+            'headline'      => env('CARONTE_UI_HEADLINE', 'Secure access with Caronte'),
+            'subheadline'   => env(
+                'CARONTE_UI_SUBHEADLINE',
+                'Authenticate users and administer access from a polished package surface.'
+            ),
+            'support_email' => env('CARONTE_UI_SUPPORT_EMAIL', ''),
+            'logo_url'      => env('CARONTE_UI_LOGO_URL', ''),
+            'accent'        => env('CARONTE_UI_ACCENT', '#0f766e'),
+        ],
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -69,5 +104,4 @@ return [
     |--------------------------------------------------------------------------
     */
     'table_prefix' => env('CARONTE_TABLE_PREFIX', ''),
-
 ];

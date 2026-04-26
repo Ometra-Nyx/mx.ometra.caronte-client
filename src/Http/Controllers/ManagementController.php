@@ -1,102 +1,72 @@
 <?php
 
-/**
- * Management dashboard and system control controller.
- *
- * PHP 8.1+
- *
- * @package   Ometra\Caronte\Http\Controllers
- * @author    Gabriel Ruelas <gruelas@gruelas.com>
- * @license   https://opensource.org/licenses/MIT MIT License
- */
-
 namespace Ometra\Caronte\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Inertia\Response as InertiaResponse;
-use Ometra\Caronte\Facades\Caronte;
 use Ometra\Caronte\Api\ClientApi;
-use Ometra\Caronte\Api\RoleApi;
 use Ometra\Caronte\CaronteRoleManager;
-use Ometra\Caronte\CaronteRequest;
+use Ometra\Caronte\Facades\Caronte;
+use Ometra\Caronte\Support\CaronteResponse;
+use Ometra\Caronte\Support\ConfiguredRoles;
+use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Manages the main dashboard, token retrieval, metadata, and role synchronization.
- */
 class ManagementController extends BaseController
 {
-    /**
-     * Display the management dashboard with users and roles.
-     *
-     * @param  Request  $request  HTTP request object.
-     * @return View|InertiaResponse  Management dashboard view with users and roles.
-     */
-    public function dashboard(Request $request): View | InertiaResponse
-    {
-        $users    = ClientApi::showUsers("", true);
-        $users    = json_decode($users['data'], true);
-
-        $rolesResponse = RoleApi::showRoles();
-        $roles         = json_decode($rolesResponse['data'] ?? '[]', true);
-
-        return $this->toView('management.index', [
-            'callback_url' => $request->callback_url,
-            'users'        => $users,
-            'roles'        => $roles,
-            'csrf_token'   => csrf_token(),
-            'routes'       => [
-                'usersList'           => route('caronte.management.users.list'),
-                'usersCreate'         => route('caronte.management.users.store'),
-                'usersUpdate'         => route('caronte.management.users.update'),
-                'usersDelete'         => route('caronte.management.users.delete'),
-                'userRolesList'       => route('caronte.management.users.roles.list', ['uri_user' => 'USER_ID']),
-                'rolesList'           => route('caronte.management.roles.list'),
-                'rolesCreate'         => route('caronte.management.roles.create'),
-                'rolesUpdate'         => route('caronte.management.roles.update'),
-                'rolesDelete'         => route('caronte.management.roles.delete'),
-            ],
-        ]);
-    }
-
-    /**
-     * Retrieve the current user's authentication token.
-     *
-     * @return Response  Token response.
-     */
-    public function getToken(): Response
-    {
-        return Response(Caronte::getToken()->toString(), 200);
-    }
-
-    /**
-     * Set or update user metadata.
-     *
-     * @param  Request              $request  HTTP request with metadata.
-     * @return Response|RedirectResponse      Response or redirect.
-     */
-    public function setMetadata(Request $request): Response|RedirectResponse
-    {
-        return CaronteRequest::setMetadata(request: $request);
-    }
-
-    /**
-     * Synchronize roles with Caronte server.
-     *
-     * @param  Request      $request  HTTP request object.
-     * @return JsonResponse           JSON response indicating sync success.
-     */
-    public function synchronize(Request $request): JsonResponse
+    public function dashboard(Request $request): View|InertiaResponse|Response
     {
         try {
-            CaronteRoleManager::getRoles();
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
-        }
+            $search = trim((string) $request->query('search', ''));
+            $response = ClientApi::showUsers(search: $search, usersApp: true);
+            $users = collect(is_array($response['data']) ? $response['data'] : []);
+            $paginator = $this->paginateUsers($users, $request);
+            $preview = CaronteRoleManager::previewSync();
 
-        return response()->json(['success' => true]);
+            return $this->toView('management.index', [
+                'branding' => $this->branding(),
+                'search' => $search,
+                'tenant_id' => Caronte::getTenantId(),
+                'users' => $paginator,
+                'configured_roles' => ConfiguredRoles::all(),
+                'remote_roles' => array_values($preview['remote']),
+                'missing_roles' => $preview['missing'],
+                'outdated_roles' => $preview['outdated'],
+                'features' => config('caronte.management.features', []),
+                'csrf_token' => csrf_token(),
+                'routes' => [
+                    'dashboard' => route('caronte.management.dashboard'),
+                    'rolesSync' => route('caronte.management.roles.sync'),
+                    'usersStore' => route('caronte.management.users.store'),
+                    'usersShow' => route('caronte.management.users.show', ['uri_user' => '__USER__']),
+                    'logout' => route('caronte.logout'),
+                ],
+            ], true);
+        } catch (\Exception $exception) {
+            return CaronteResponse::handleException(
+                exception: $exception,
+                forwardUrl: (string) config('caronte.LOGIN_URL')
+            );
+        }
+    }
+
+    private function paginateUsers(Collection $users, Request $request): LengthAwarePaginator
+    {
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = 10;
+        $items = $users->slice(($page - 1) * $perPage, $perPage)->values();
+
+        return new LengthAwarePaginator(
+            items: $items,
+            total: $users->count(),
+            perPage: $perPage,
+            currentPage: $page,
+            options: [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
     }
 }

@@ -1,70 +1,73 @@
 import React from "react";
 
-export default function Login({ callback_url, routes = {}, csrf_token }) {
+export default function Login({
+  callback_url,
+  routes = {},
+  branding = {},
+  csrf_token,
+}) {
   return (
-    <div className="container min-vh-100 d-flex justify-content-center align-items-center">
-      <div className="row w-100 justify-content-center">
-        <div className="col-md-8 col-lg-5">
-          <div className="card shadow-lg border-0 rounded-lg">
-            <div className="card-header bg-primary text-white text-center py-4">
-              <h3 className="font-weight-light my-2">INICIAR SESION</h3>
+    <section className="caronte-auth">
+      <div className="caronte-auth__panel">
+        <span className="caronte-kicker">
+          {branding.app_name || "Caronte"}
+        </span>
+        <h1 className="caronte-title">
+          {branding.headline || "Secure access with Caronte"}
+        </h1>
+        <p className="caronte-copy">
+          {branding.subheadline ||
+            "Authenticate users and administer access from a polished package surface."}
+        </p>
+
+        <div className="caronte-card">
+          <div className="caronte-card__header">
+            <h2>Sign in</h2>
+            <p>Use your Caronte credentials to continue.</p>
+          </div>
+
+          <form method="POST" action={routes.login} className="caronte-form">
+            <input type="hidden" name="_token" value={csrf_token} />
+            {callback_url ? (
+              <input type="hidden" name="callback_url" value={callback_url} />
+            ) : null}
+
+            <div>
+              <label htmlFor="email" className="form-label">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                name="email"
+                className="form-control"
+                required
+              />
             </div>
-            <div className="card-body p-5">
-              <form method="POST" action={routes.login || ""}>
-                <input type="hidden" name="_token" value={csrf_token} />
-                {callback_url && (
-                  <input
-                    type="hidden"
-                    name="callback_url"
-                    value={callback_url}
-                  />
-                )}
-                <div className="mb-3">
-                  <label htmlFor="email" className="form-label text-muted">
-                    Correo electronico
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    className="form-control form-control-lg"
-                    placeholder="nombre@ejemplo.com"
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="password" className="form-label text-muted">
-                    Contrasena
-                  </label>
-                  <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    className="form-control form-control-lg"
-                    placeholder="********"
-                    required
-                  />
-                </div>
-                <div className="d-flex justify-content-end mb-4">
-                  <a
-                    href={routes.passwordRecoverForm || "/password/recover"}
-                    className="text-decoration-none small text-muted"
-                  >
-                    Olvidaste tu contrasena?
-                  </a>
-                </div>
-                <div className="d-grid gap-2">
-                  <input
-                    type="submit"
-                    value="Entrar"
-                    className="btn btn-primary btn-lg"
-                  />
-                </div>
-              </form>
+
+            <div>
+              <label htmlFor="password" className="form-label">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                name="password"
+                className="form-control"
+                required
+              />
             </div>
+
+            <button type="submit" className="btn caronte-btn-primary">
+              Continue
+            </button>
+          </form>
+
+          <div className="caronte-card__footer">
+            <a href={routes.passwordRecoverForm}>Forgot your password?</a>
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

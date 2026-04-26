@@ -1,54 +1,50 @@
 <?php
 
-/**
- * Root management command for CLI system administration.
- *
- * PHP 8.1+
- *
- * @package   Ometra\Caronte\Console\Commands
- * @author    Gabriel Ruelas <gruelas@gruelas.com>
- * @license   https://opensource.org/licenses/MIT MIT License
- * @link      https://github.com/Ometra-Core/mx.ometra.caronte-client Documentation
- */
-
 namespace Ometra\Caronte\Console\Commands;
 
 use Illuminate\Console\Command;
+use Ometra\Caronte\Console\Concerns\GuardsManagement;
 
 class ManagementCaronte extends Command
 {
-    protected $signature = 'caronte-client:management';
-    protected $description = 'Entry point for managing caronte-client commands';
+    use GuardsManagement;
+
+    protected $signature = 'caronte:admin';
+
+    protected $description = 'Interactive entry point for Caronte user management commands.';
 
     public function handle(): int
     {
-        $this->line('Sistema de comandos de adminitración de caronte:');
-        $mainOptions = [
-            '0' => 'Administración de usuarios',
-            '1' => 'Administración de roles',
-            '2' => 'Salir',
-        ];
+        if (!$this->ensureManagementEnabled()) {
+            return self::FAILURE;
+        }
+
         do {
-            $selectedOption = $this->choice(
-                'Selecciona una opción:',
-                array_values($mainOptions)
-            );
-            $option = array_search($selectedOption, $mainOptions);
-            switch ($option) {
-                case '0':
-                    $this->call('caronte-client:management-users');
-                    break;
-                case '1':
-                    $this->call('caronte-client:management-roles');
-                    break;
-                case '2':
-                    $this->info('Saliendo del administrador principal...');
-                    return 0;
-                default:
-                    $this->error('Opción no válida. Por favor, intenta de nuevo.');
-                    break;
+            $selected = $this->choice('Choose an operation', [
+                'Sync configured roles',
+                'List users',
+                'Create user',
+                'Update user',
+                'Delete user',
+                'Sync user roles',
+                'Exit',
+            ]);
+
+            match ($selected) {
+                'Sync configured roles' => $this->call('caronte:roles:sync'),
+                'List users' => $this->call('caronte:users:list'),
+                'Create user' => $this->call('caronte:users:create'),
+                'Update user' => $this->call('caronte:users:update'),
+                'Delete user' => $this->call('caronte:users:delete'),
+                'Sync user roles' => $this->call('caronte:users:roles:sync'),
+                'Exit' => null,
+            };
+
+            if ($selected === 'Exit') {
+                break;
             }
         } while (true);
-        return 0;
+
+        return self::SUCCESS;
     }
 }

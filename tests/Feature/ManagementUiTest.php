@@ -1,0 +1,38 @@
+<?php
+
+namespace Tests\Feature;
+
+use Illuminate\Support\Facades\Http;
+use Tests\TestCase;
+
+class ManagementUiTest extends TestCase
+{
+    public function test_management_dashboard_renders_with_session_token_and_remote_data(): void
+    {
+        Http::fake([
+            'https://caronte.test/api/users*' => Http::response([
+                'status' => 200,
+                'message' => 'Users retrieved',
+                'data' => [
+                    ['uri_user' => 'user-1', 'name' => 'Jane Doe', 'email' => 'jane@example.com'],
+                ],
+            ], 200),
+            'https://caronte.test/api/applications/roles' => Http::response([
+                'status' => 200,
+                'message' => 'Roles retrieved',
+                'data' => [
+                    ['uri_applicationRole' => sha1(\Ometra\Caronte\Support\ApplicationToken::appId() . 'root'), 'name' => 'root', 'description' => 'Default super administrator role'],
+                    ['uri_applicationRole' => sha1(\Ometra\Caronte\Support\ApplicationToken::appId() . 'admin'), 'name' => 'admin', 'description' => 'Administrative access'],
+                ],
+            ], 200),
+        ]);
+
+        $this->withSession([
+            config('caronte.SESSION_KEY') => $this->makeToken(),
+        ])->get('/caronte/management')
+            ->assertOk()
+            ->assertSee('User management')
+            ->assertSee('Create user')
+            ->assertSee('Jane Doe');
+    }
+}

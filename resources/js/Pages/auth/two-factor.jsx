@@ -1,31 +1,64 @@
 import React from "react";
 
-export default function TwoFactor({ callback_url, routes = {}, csrf_token }) {
+export default function TwoFactor({
+  callback_url,
+  routes = {},
+  branding = {},
+  csrf_token,
+}) {
   return (
-    <div className="mt-5 col-6 mx-auto">
-      <form method="POST" action={routes.twoFactorRequest || ""}>
-        <input type="hidden" name="_token" value={csrf_token} />
-        {callback_url && (
-          <input type="hidden" name="callback_url" value={callback_url} />
-        )}
-        <div className="form-group mt-5">
-          <h4>Correo electronico registrado</h4>
-          <div className="d-flex flex-row">
-            <input
-              type="email"
-              name="email"
-              className="form-control"
-              placeholder="Correo electronico"
-              required
-            />
-            <input
-              type="submit"
-              value="Entrar"
-              className="btn btn-success ms-2"
-            />
+    <section className="caronte-auth">
+      <div className="caronte-auth__panel">
+        <span className="caronte-kicker">
+          {branding.app_name || "Caronte"}
+        </span>
+        <h1 className="caronte-title">Two-factor sign in</h1>
+        <p className="caronte-copy">
+          We will send a secure login link to the email address registered in
+          Caronte.
+        </p>
+
+        <div className="caronte-card">
+          <div className="caronte-card__header">
+            <h2>Request a sign-in link</h2>
+            <p>Open the email on any device and follow the secure link.</p>
+          </div>
+
+          <form
+            method="POST"
+            action={routes.twoFactorRequest}
+            className="caronte-form"
+          >
+            <input type="hidden" name="_token" value={csrf_token} />
+            {callback_url ? (
+              <input type="hidden" name="callback_url" value={callback_url} />
+            ) : null}
+
+            <div>
+              <label htmlFor="email" className="form-label">
+                Registered email
+              </label>
+              <input
+                id="email"
+                type="email"
+                name="email"
+                className="form-control"
+                required
+              />
+            </div>
+
+            <button type="submit" className="btn caronte-btn-primary">
+              Send sign-in link
+            </button>
+          </form>
+
+          <div className="caronte-card__footer">
+            <a href={routes.passwordRecoverForm}>
+              Need to reset your password first?
+            </a>
           </div>
         </div>
-      </form>
-    </div>
+      </div>
+    </section>
   );
 }
