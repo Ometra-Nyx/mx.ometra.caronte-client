@@ -15,8 +15,8 @@ return [
     | JWT Token Configuration
     |--------------------------------------------------------------------------
     */
-    'ISSUER_ID'      => env('CARONTE_ISSUER_ID', ''),
-    'ENFORCE_ISSUER' => env('CARONTE_ENFORCE_ISSUER', false),
+    'ISSUER_ID'      => env('CARONTE_ISSUER_ID', 'caronte'),
+    'ENFORCE_ISSUER' => env('CARONTE_ENFORCE_ISSUER', true),
 
     /*
     |--------------------------------------------------------------------------
@@ -25,6 +25,7 @@ return [
     */
     'USE_2FA'               => env('CARONTE_2FA', false),
     'ALLOW_HTTP_REQUESTS'   => env('CARONTE_ALLOW_HTTP_REQUESTS', false),
+    'TLS_VERIFY'            => env('CARONTE_TLS_VERIFY', true),
     'UPDATE_LOCAL_USER'     => env('CARONTE_UPDATE_LOCAL_USER', false),
     'NOTIFICATION_DELIVERY' => env('CARONTE_NOTIFICATION_DELIVERY', 'server'),
     'SESSION_KEY'           => env('CARONTE_SESSION_KEY', 'caronte.user_token'),

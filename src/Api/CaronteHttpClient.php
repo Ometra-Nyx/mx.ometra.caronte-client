@@ -89,7 +89,7 @@ class CaronteHttpClient
     {
         return Http::acceptJson()
             ->withOptions([
-                'verify' => !config('caronte.ALLOW_HTTP_REQUESTS'),
+                'verify' => (bool) config('caronte.TLS_VERIFY', true),
             ])
             ->timeout((int) config('caronte.HTTP.timeout', 10))
             ->retry(

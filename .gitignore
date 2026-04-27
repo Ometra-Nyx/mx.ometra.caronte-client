@@ -2,3 +2,4 @@
 composer.lock
 ruleset.xml
 .DS_Store
+.phpunit.cache/views/

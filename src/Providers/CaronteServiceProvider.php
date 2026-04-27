@@ -151,6 +151,15 @@ class CaronteServiceProvider extends ServiceProvider
             );
         }
 
+        $url = (string) config('caronte.URL');
+        $scheme = parse_url($url, PHP_URL_SCHEME);
+
+        if ($scheme !== 'https' && ! (bool) config('caronte.ALLOW_HTTP_REQUESTS', false)) {
+            throw new \InvalidArgumentException(
+                'Caronte: CARONTE_URL must use HTTPS unless CARONTE_ALLOW_HTTP_REQUESTS=true.'
+            );
+        }
+
         ConfiguredRoles::validate();
     }
 

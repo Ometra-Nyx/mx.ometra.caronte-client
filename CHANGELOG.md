@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Changed default issuer validation to enabled with `CARONTE_ISSUER_ID=caronte`.
+- Added `CARONTE_TLS_VERIFY` so TLS certificate verification is independent from allowing plain HTTP URLs.
+- Documented that `logoutAll` revokes sessions only for the current Caronte application.
+
 All notable changes to the Caronte Client package will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),

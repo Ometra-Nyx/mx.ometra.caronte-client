@@ -71,14 +71,18 @@ CARONTE_APP_SECRET=replace-with-the-secret-issued-by-caronte
 Important optional settings:
 
 ```env
-CARONTE_ENFORCE_ISSUER=false
-CARONTE_ISSUER_ID=
+CARONTE_ENFORCE_ISSUER=true
+CARONTE_ISSUER_ID=caronte
+CARONTE_ALLOW_HTTP_REQUESTS=false
+CARONTE_TLS_VERIFY=true
 CARONTE_2FA=false
 CARONTE_NOTIFICATION_DELIVERY=server
 CARONTE_USE_INERTIA=false
 CARONTE_MANAGEMENT_ENABLED=true
 CARONTE_MANAGEMENT_ACCESS_ROLES=root
 ```
+
+`CARONTE_URL` must use HTTPS unless `CARONTE_ALLOW_HTTP_REQUESTS=true`. `CARONTE_TLS_VERIFY=false` disables certificate verification for local/self-signed environments only; it is independent from allowing plain HTTP.
 
 ## Roles
 
@@ -159,6 +163,8 @@ Auth routes are package-owned. By default:
 - login form: `/login`
 - logout: `POST /logout`
 - password recovery form: `/password/recover`
+
+`POST /logout` with the `all` flag calls Caronte `logoutAll`, which revokes sessions for the current Caronte application only.
 
 Management routes are only registered when `caronte.management.enabled=true`.
 

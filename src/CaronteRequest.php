@@ -74,6 +74,14 @@ class CaronteRequest
                     payload: $payload,
                 );
 
+                if ((string) data_get($response, 'data.action_url', '') === '') {
+                    return CaronteResponse::success(
+                        message: $response['message'],
+                        data: $response['data'],
+                        forwardUrl: (string) config('caronte.LOGIN_URL')
+                    );
+                }
+
                 app(SendsTwoFactorChallenge::class)->send(
                     email: (string) data_get($response, 'data.email', $request->string('email')->toString()),
                     actionUrl: (string) data_get($response, 'data.action_url', ''),
@@ -148,6 +156,14 @@ class CaronteRequest
                     endpoint: 'api/auth/password/recover/issue',
                     payload: $payload,
                 );
+
+                if ((string) data_get($response, 'data.action_url', '') === '') {
+                    return CaronteResponse::success(
+                        message: $response['message'],
+                        data: $response['data'],
+                        forwardUrl: (string) config('caronte.LOGIN_URL')
+                    );
+                }
 
                 app(SendsPasswordRecovery::class)->send(
                     email: (string) data_get($response, 'data.email', $request->string('email')->toString()),
