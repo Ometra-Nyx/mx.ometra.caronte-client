@@ -8,6 +8,7 @@
 
 namespace Ometra\Caronte\Models;
 
+use Equidna\BeeHive\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +22,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class CaronteUser extends Model
 {
+    use BelongsToTenant;
+
     protected $table;
     protected $primaryKey = 'uri_user';
     protected $keyType    = 'string';
@@ -29,12 +32,15 @@ class CaronteUser extends Model
     public $incrementing = false;
 
     protected $fillable = [
+        'id_tenant',
         'uri_user',
         'name',
         'email'
     ];
 
     protected $hidden = [];
+
+    protected string $tenantKey = 'id_tenant';
 
     /**
      * Initialize the model.

@@ -1,0 +1,18 @@
+<?php
+
+namespace Tests\Feature;
+
+use Illuminate\Support\Facades\Route;
+use Tests\TestCase;
+
+class RouteRegistrationTest extends TestCase
+{
+    public function test_auth_and_management_routes_are_registered_when_management_is_enabled(): void
+    {
+        $this->assertTrue(Route::has('caronte.login.form'));
+        $this->assertTrue(Route::has('caronte.login'));
+        $this->assertTrue(Route::has('caronte.management.dashboard'));
+        $this->assertTrue(Route::has('caronte.management.roles.sync'));
+        $this->assertTrue(Route::has('caronte.management.users.show'));
+    }
+}

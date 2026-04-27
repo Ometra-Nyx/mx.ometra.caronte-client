@@ -1,7 +1,7 @@
 {
   "name": "ometra/caronte-client",
   "description": "Caronte authentication client",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "type": "library",
   "license": "MIT",
   "authors": [
@@ -11,12 +11,13 @@
     }
   ],
   "require": {
-    "php": "^8.0",
+    "php": "^8.2",
+    "equidna/bee-hive": "^1.0",
     "equidna/laravel-toolkit": ">=1.0.0",
     "lcobucci/jwt": "^5.3",
     "lcobucci/clock": "^3.2",
-    "illuminate/support": "^10.0 || ^11.0 || ^12.0",
-    "laravel/framework": "^10.0 || ^11.0 || ^12.0",
+    "illuminate/support": "^12.0",
+    "laravel/framework": "^12.0",
     "laravel/prompts": "^0.3.7",
     "inertiajs/inertia-laravel": "^2.0"
   },
@@ -31,7 +32,7 @@
     }
   },
   "require-dev": {
-    "orchestra/testbench": "^8.0 || ^9.0 || ^10.0",
+    "orchestra/testbench": "^10.0",
     "phpunit/phpunit": "^10.0 || ^11.0"
   },
   "scripts": {

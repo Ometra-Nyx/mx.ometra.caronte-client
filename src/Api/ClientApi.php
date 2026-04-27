@@ -1,152 +1,131 @@
 <?php
 
-/**
- * HTTP client for Caronte user and client management API.
- *
- * Provides methods for managing users via the Caronte API using app-level
- * authentication tokens. All methods return standardized response arrays.
- *
- * PHP 8.1+
- *
- * @package   Ometra\Caronte\Api
- * @author    Gabriel Ruelas <gruelas@gruelas.com>
- * @license   https://opensource.org/licenses/MIT MIT License
- * @link      https://github.com/Ometra-Core/mx.ometra.caronte-client Documentation
- */
-
 namespace Ometra\Caronte\Api;
 
-/**
- * Handles HTTP requests for user management to the Caronte authentication server.
- *
- * @author Gabriel Ruelas
- * @license MIT
- * @version 1.4.0
- */
+use Ometra\Caronte\Support\TenantContextResolver;
+
 class ClientApi extends BaseApiClient
 {
-    private function __construct()
-    {
-        parent::__construct();
-    }
-
     /**
-     * Returns users matching the search criteria.
-     *
-     * @param  string $paramSearch  Search term for filtering users.
-     * @param  bool   $usersApp     Filter by application users only.
-     * @return array{success: bool, data: string|null, error: string|null}
+     * @return array{status: int, message: string, data: mixed, errors: array<int|string, mixed>}
      */
-    public static function showUsers(string $paramSearch, bool $usersApp = false): array
+    public static function showUsers(string $search = '', bool $usersApp = true, ?string $tenantId = null): array
     {
-        return self::makeRequest(
+        return static::http()->applicationRequest(
             method: 'get',
-            endpoint: 'api/app/users/',
-            data: [
-                'search' => $paramSearch,
+            endpoint: 'api/users',
+            query: [
+                'search' => $search,
                 'app_users' => $usersApp ? 'true' : 'false',
-            ]
+            ],
+            tenantId: TenantContextResolver::resolve($tenantId)
         );
     }
 
     /**
-     * Creates a new user in the Caronte system.
-     *
-     * @param  string $name                  User's full name.
-     * @param  string $email                 User's email address.
-     * @param  string $password              User's password.
-     * @param  string $password_confirmation Password confirmation.
-     * @return array{success: bool, data: string|null, error: string|null}
+     * @param  array{name: string, email: string, password: string, password_confirmation: string}  $attributes
+     * @return array{status: int, message: string, data: mixed, errors: array<int|string, mixed>}
      */
-    public static function createUser(string $name, string $email, string $password, string $password_confirmation): array
+    public static function createUser(array $attributes, ?string $tenantId = null): array
     {
-        return self::makeRequest(
+        return static::http()->applicationRequest(
             method: 'post',
-            endpoint: 'api/app/users',
-            data: [
-                'name' => $name,
-                'email' => $email,
-                'password' => $password,
-                'password_confirmation' => $password_confirmation,
-            ]
+            endpoint: 'api/users',
+            payload: $attributes,
+            tenantId: TenantContextResolver::resolve($tenantId)
         );
     }
 
     /**
-     * Updates a user's name.
-     *
-     * @param  string $uri_user User URI identifier.
-     * @param  string $name     Updated user name.
-     * @return array{success: bool, data: string|null, error: string|null}
+     * @return array{status: int, message: string, data: mixed, errors: array<int|string, mixed>}
      */
-    public static function updateUser(string $uri_user, string $name): array
+    public static function showUser(string $uriUser, ?string $tenantId = null): array
     {
-        return self::makeRequest(
-            method: 'put',
-            endpoint: 'api/app/users/' . $uri_user,
-            data: ['name' => $name]
-        );
-    }
-
-    /**
-     * Deletes a user from the Caronte system.
-     *
-     * @param  string $uri_user User URI identifier.
-     * @return array{success: bool, data: string|null, error: string|null}
-     */
-    public static function deleteUser(string $uri_user): array
-    {
-        return self::makeRequest(
-            method: 'delete',
-            endpoint: 'api/app/users/' . $uri_user
-        );
-    }
-
-    /**
-     * Returns all roles assigned to a user.
-     *
-     * @param  string $uri_user User URI identifier.
-     * @return array{success: bool, data: string|null, error: string|null}
-     */
-    public static function showUserRoles(string $uri_user): array
-    {
-        return self::makeRequest(
+        return static::http()->applicationRequest(
             method: 'get',
-            endpoint: 'api/app/users/' . $uri_user . '/roles'
+            endpoint: 'api/users/' . $uriUser,
+            tenantId: TenantContextResolver::resolve($tenantId)
         );
     }
 
     /**
-     * Assigns a role to a user.
-     *
-     * @param  string $uriUser            User URI identifier.
-     * @param  string $uriApplicationRole Application role URI identifier.
-     * @return array{success: bool, data: string|null, error: string|null}
+     * @param  array{name: string}  $attributes
+     * @return array{status: int, message: string, data: mixed, errors: array<int|string, mixed>}
      */
-    public static function assignRoleToUser(string $uriUser, string $uriApplicationRole): array
+    public static function updateUser(string $uriUser, array $attributes, ?string $tenantId = null): array
     {
-        return self::makeRequest(
-            method: 'post',
-            endpoint: 'api/app/users/roles/' . $uriApplicationRole . '/' . $uriUser,
-            data: [
-                'uri_user' => $uriUser,
-                'uri_applicationRole' => $uriApplicationRole,
-            ]
+        return static::http()->applicationRequest(
+            method: 'put',
+            endpoint: 'api/users/' . $uriUser,
+            payload: $attributes,
+            tenantId: TenantContextResolver::resolve($tenantId)
         );
     }
 
     /**
-     * Removes a role from a user.
-     *
-     * @param  string $uri_user           User URI identifier.
-     * @param  string $uri_applicationRole Application role URI identifier.
-     * @return array{success: bool, data: string|null, error: string|null}
+     * @return array{status: int, message: string, data: mixed, errors: array<int|string, mixed>}
      */
-    public static function deleteUserRole(string $uri_user, string $uri_applicationRole): array
+    public static function deleteUser(string $uriUser, ?string $tenantId = null): array
     {
-        return self::makeRequest(
+        return static::http()->applicationRequest(
             method: 'delete',
-            endpoint: 'api/app/users/roles/' . $uri_applicationRole . '/' . $uri_user
+            endpoint: 'api/users/' . $uriUser,
+            tenantId: TenantContextResolver::resolve($tenantId)
+        );
+    }
+
+    /**
+     * @return array{status: int, message: string, data: mixed, errors: array<int|string, mixed>}
+     */
+    public static function showUserRoles(string $uriUser, ?string $tenantId = null): array
+    {
+        return static::http()->applicationRequest(
+            method: 'get',
+            endpoint: 'api/users/' . $uriUser . '/roles',
+            tenantId: TenantContextResolver::resolve($tenantId)
+        );
+    }
+
+    /**
+     * @param  array<int, string>  $roleUris
+     * @return array{status: int, message: string, data: mixed, errors: array<int|string, mixed>}
+     */
+    public static function syncUserRoles(string $uriUser, array $roleUris, ?string $tenantId = null): array
+    {
+        return static::http()->applicationRequest(
+            method: 'put',
+            endpoint: 'api/users/' . $uriUser . '/roles',
+            payload: [
+                'roles' => array_values(array_unique($roleUris)),
+            ],
+            tenantId: TenantContextResolver::resolve($tenantId)
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @return array{status: int, message: string, data: mixed, errors: array<int|string, mixed>}
+     */
+    public static function storeUserMetadata(string $uriUser, array $metadata, ?string $tenantId = null): array
+    {
+        return static::http()->applicationRequest(
+            method: 'post',
+            endpoint: 'api/users/' . $uriUser . '/metadata',
+            payload: $metadata,
+            tenantId: TenantContextResolver::resolve($tenantId)
+        );
+    }
+
+    /**
+     * @return array{status: int, message: string, data: mixed, errors: array<int|string, mixed>}
+     */
+    public static function deleteUserMetadata(string $uriUser, string $key, ?string $tenantId = null): array
+    {
+        return static::http()->applicationRequest(
+            method: 'delete',
+            endpoint: 'api/users/' . $uriUser . '/metadata',
+            payload: ['key' => $key],
+            tenantId: TenantContextResolver::resolve($tenantId)
         );
     }
 }

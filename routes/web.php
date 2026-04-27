@@ -1,73 +1,46 @@
 <?php
 
-/**
- * @author Gabriel Ruelas
- * @license MIT
- * @version 1.4.0
- *
- */
-
 use Illuminate\Support\Facades\Route;
 use Ometra\Caronte\Http\Controllers\AuthController;
 use Ometra\Caronte\Http\Controllers\ManagementController;
-use Ometra\Caronte\Http\Controllers\UserController;
 use Ometra\Caronte\Http\Controllers\RoleController;
-use Equidna\Toolkit\Http\Middleware\ExcludeFromHistory;
-use Equidna\Toolkit\Http\Middleware\DisableDebugbar;
+use Ometra\Caronte\Http\Controllers\UserController;
 
-//* Caronte
-Route::middleware([DisableDebugbar::class])->group(function () {
-    // Authentication routes
-    Route::get('/login', [AuthController::class, 'loginForm'])->name('caronte.login.form');
-    Route::post('/login', [AuthController::class, 'login'])->name('caronte.login');
-    Route::get('/logout', [AuthController::class, 'logout'])->name('caronte.logout');
+$authPrefix = trim((string) config('caronte.ROUTES_PREFIX', ''), '/');
+$loginPath = trim((string) config('caronte.LOGIN_URL', '/login'), '/');
+$managementPrefix = trim((string) config('caronte.management.route_prefix', 'caronte/management'), '/');
+$managementRoles = implode(',', \Ometra\Caronte\Support\ConfiguredRoles::accessRoles());
 
-    // Two-factor authentication
-    Route::post('/2fa', [AuthController::class, 'twoFactorTokenRequest'])->name('caronte.2fa.request');
-    Route::get('/2fa/{token}', [AuthController::class, 'twoFactorTokenLogin'])->name('caronte.2fa.login');
+Route::prefix($authPrefix)->name('caronte.')->group(function () use ($loginPath): void {
+    Route::get($loginPath, [AuthController::class, 'loginForm'])->name('login.form');
+    Route::post($loginPath, [AuthController::class, 'login'])->name('login');
+    Route::post('logout', [AuthController::class, 'logout'])->name('logout');
 
-    // Password recovery
-    Route::prefix('password/recover')->name('caronte.password.recover.')->group(
-        function () {
-            Route::get('', [AuthController::class, 'passwordRecoverRequestForm'])->name('form');
-            Route::post('', [AuthController::class, 'passwordRecoverRequest'])->name('request');
-            Route::get('{token}', [AuthController::class, 'passwordRecoverTokenValidation'])->name('validate-token');
-            Route::post('{token}', [AuthController::class, 'passwordRecover'])->name('submit');
-        }
-    );
+    Route::post('2fa', [AuthController::class, 'twoFactorTokenRequest'])->name('2fa.request');
+    Route::get('2fa/{token}', [AuthController::class, 'twoFactorTokenLogin'])->name('2fa.login');
 
-    // Token and metadata management
-    Route::get('get-token', [ManagementController::class, 'getToken'])->name('caronte.token')
-        ->middleware([ExcludeFromHistory::class,]);
-    Route::post('set-metadata', [ManagementController::class, 'setMetadata'])->name('caronte.set-metadata');
-
-    // Management dashboard and CRUD operations
-    Route::prefix('management')->name('caronte.management.')->group(function () {
-
-        Route::get('/', [ManagementController::class, 'dashboard'])->name('dashboard');
-        Route::post('/synchronize', [ManagementController::class, 'synchronize'])->name('synchronize');
-
-        // User management
-        Route::prefix('users')->name('users.')->group(function () {
-            Route::get('', [UserController::class, 'index'])->name('list');
-            Route::post('/create', [UserController::class, 'store'])->name('store');
-            Route::post('/update', [UserController::class, 'update'])->name('update');
-            Route::post('/delete', [UserController::class, 'delete'])->name('delete');
-
-            // User roles management
-            Route::prefix('{uri_user}/roles')->name('roles.')->group(function () {
-                Route::get('', [RoleController::class, 'listByUser'])->name('list');
-                Route::post('/attach', [RoleController::class, 'attach'])->name('attach');
-                Route::post('/delete', [RoleController::class, 'detach'])->name('delete');
-            });
-        });
-
-        // Role management
-        Route::prefix('roles')->name('roles.')->group(function () {
-            Route::get('', [RoleController::class, 'index'])->name('list');
-            Route::post('/create', [RoleController::class, 'create'])->name('create');
-            Route::post('/update', [RoleController::class, 'update'])->name('update');
-            Route::post('/delete', [RoleController::class, 'delete'])->name('delete');
-        });
+    Route::prefix('password/recover')->name('password.recover.')->group(function (): void {
+        Route::get('', [AuthController::class, 'passwordRecoverRequestForm'])->name('form');
+        Route::post('', [AuthController::class, 'passwordRecoverRequest'])->name('request');
+        Route::get('{token}', [AuthController::class, 'passwordRecoverTokenValidation'])->name('validate-token');
+        Route::post('{token}', [AuthController::class, 'passwordRecover'])->name('submit');
     });
 });
+
+if (config('caronte.management.enabled')) {
+    Route::prefix($managementPrefix)
+        ->name('caronte.management.')
+        ->middleware(['caronte.session', "caronte.roles:{$managementRoles}"])
+        ->group(function (): void {
+            Route::get('', [ManagementController::class, 'dashboard'])->name('dashboard');
+            Route::post('roles/sync', [RoleController::class, 'sync'])->name('roles.sync');
+
+            Route::post('users', [UserController::class, 'store'])->name('users.store');
+            Route::get('users/{uri_user}', [UserController::class, 'show'])->name('users.show');
+            Route::put('users/{uri_user}', [UserController::class, 'update'])->name('users.update');
+            Route::delete('users/{uri_user}', [UserController::class, 'delete'])->name('users.delete');
+            Route::put('users/{uri_user}/roles', [UserController::class, 'syncRoles'])->name('users.roles.sync');
+            Route::post('users/{uri_user}/metadata', [UserController::class, 'storeMetadata'])->name('users.metadata.store');
+            Route::delete('users/{uri_user}/metadata', [UserController::class, 'deleteMetadata'])->name('users.metadata.delete');
+        });
+}

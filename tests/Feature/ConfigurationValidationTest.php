@@ -1,0 +1,83 @@
+<?php
+
+namespace Tests\Feature;
+
+use InvalidArgumentException;
+use Ometra\Caronte\Providers\CaronteServiceProvider;
+use Ometra\Caronte\Support\ConfiguredRoles;
+use Tests\TestCase;
+
+class ConfigurationValidationTest extends TestCase
+{
+    public function test_management_access_roles_must_exist_in_configured_roles(): void
+    {
+        config()->set('caronte.roles', [
+            'root' => 'Default super administrator role',
+        ]);
+        config()->set('caronte.management.access_roles', ['operator']);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Unknown management access role [operator].');
+
+        ConfiguredRoles::validate();
+    }
+
+    public function test_invalid_role_names_are_rejected(): void
+    {
+        config()->set('caronte.roles', [
+            ['name' => 'Bad Role!', 'description' => 'Invalid'],
+        ]);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('contains invalid characters');
+
+        ConfiguredRoles::all();
+    }
+
+    public function test_root_role_is_always_present_after_normalization(): void
+    {
+        config()->set('caronte.roles', [
+            'admin' => 'Administrative access',
+        ]);
+
+        $roles = ConfiguredRoles::keyedByName();
+
+        $this->assertArrayHasKey('admin', $roles);
+        $this->assertArrayHasKey('root', $roles);
+        $this->assertSame('Default super administrator role', $roles['root']['description']);
+    }
+
+    public function test_caronte_url_must_use_https_unless_http_is_explicitly_allowed(): void
+    {
+        config()->set('caronte.URL', 'http://caronte.test');
+        config()->set('caronte.ALLOW_HTTP_REQUESTS', false);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('CARONTE_URL must use HTTPS');
+
+        $this->validatePackageConfig();
+    }
+
+    public function test_http_caronte_url_is_allowed_when_explicitly_enabled(): void
+    {
+        config()->set('caronte.URL', 'http://caronte.test');
+        config()->set('caronte.ALLOW_HTTP_REQUESTS', true);
+
+        $this->validatePackageConfig();
+
+        $this->assertTrue(true);
+    }
+
+    private function validatePackageConfig(): void
+    {
+        $provider = new CaronteServiceProvider($this->app);
+
+        $validator = \Closure::bind(
+            fn() => $this->validateCaronteConfig(),
+            $provider,
+            $provider::class
+        );
+
+        $validator();
+    }
+}

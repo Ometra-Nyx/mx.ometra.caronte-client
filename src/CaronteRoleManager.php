@@ -1,104 +1,90 @@
 <?php
 
-/**
- * Manages application roles via Caronte server API.
- *
- * Provides direct API methods for role CRUD operations. All methods execute
- * immediately on Caronte server without local caching.
- *
- * PHP 8.1+
- *
- * @package   Ometra\Caronte
- * @author    Gabriel Ruelas <gruelas@gruelas.com>
- * @license   https://opensource.org/licenses/MIT MIT License
- */
-
 namespace Ometra\Caronte;
 
-use Equidna\Toolkit\Exceptions\UnauthorizedException;
 use Ometra\Caronte\Api\RoleApi;
+use Ometra\Caronte\Support\ApplicationToken;
+use Ometra\Caronte\Support\ConfiguredRoles;
 
 class CaronteRoleManager
 {
-    /**
-     * Returns the app-bound authentication token.
-     *
-     * @return non-empty-string
-     * @throws UnauthorizedException When token cannot be generated.
-     */
     public static function getToken(): string
     {
-        $token = base64_encode(sha1(config('caronte.APP_ID')) . ':' . config('caronte.APP_SECRET'));
-        if (is_null($token) || empty($token)) {
-            throw new UnauthorizedException('Token not found');
-        }
-
-        return $token;
+        return ApplicationToken::make();
     }
 
-    /**
-     * Returns the SHA1 hash of the application ID.
-     *
-     * @return string
-     */
     public static function getAppId(): string
     {
-        return sha1(config('caronte.APP_ID'));
+        return ApplicationToken::appId();
     }
 
     /**
-     * Returns all roles from the Caronte server.
-     *
-     * @return array<string, array>
+     * @return array<string, array<string, mixed>>
      */
-    public static function getRoles(): array
+    public static function getRemoteRoles(): array
     {
         $response = RoleApi::showRoles();
-        if (!$response['success']) {
-            return [];
-        }
+        $roles = is_array($response['data']) ? $response['data'] : [];
+        $mapped = [];
 
-        $roles = json_decode($response['data'], true) ?? [];
-        $mappedRoles = [];
         foreach ($roles as $role) {
-            $mappedRoles[$role['uri_applicationRole']] = $role;
+            if (!is_array($role) || !isset($role['name'])) {
+                continue;
+            }
+
+            $mapped[(string) $role['name']] = $role;
         }
 
-        return $mappedRoles;
+        return $mapped;
     }
 
     /**
-     * Creates a new role on the Caronte server.
-     *
-     * @param  non-empty-string $name        Role name.
-     * @param  non-empty-string $description Role description.
-     * @return array{success: bool, data: string|null, error: string|null}
+     * @return array<int, array{name: string, description: string, uri_applicationRole: string}>
      */
-    public static function createRole(string $name, string $description): array
+    public static function getConfiguredRoles(): array
     {
-        return RoleApi::createRole($name, $description);
+        return ConfiguredRoles::all();
     }
 
     /**
-     * Updates an existing role on the Caronte server.
-     *
-     * @param  string $uriApplicationRole Application role URI identifier.
-     * @param  string $description        Updated role description.
-     * @return array{success: bool, data: string|null, error: string|null}
+     * @return array{configured: array<int, array{name: string, description: string, uri_applicationRole: string}>, remote: array<string, array<string, mixed>>, missing: array<int, string>, outdated: array<int, string>}
      */
-    public static function updateRole(string $uriApplicationRole, string $description): array
+    public static function previewSync(): array
     {
-        return RoleApi::updateRole($uriApplicationRole, $description);
+        $configured = static::getConfiguredRoles();
+        $remote = static::getRemoteRoles();
+        $missing = [];
+        $outdated = [];
+
+        foreach ($configured as $role) {
+            $remoteRole = $remote[$role['name']] ?? null;
+
+            if ($remoteRole === null) {
+                $missing[] = $role['name'];
+                continue;
+            }
+
+            if (($remoteRole['description'] ?? null) !== $role['description']) {
+                $outdated[] = $role['name'];
+            }
+        }
+
+        return compact('configured', 'remote', 'missing', 'outdated');
     }
 
     /**
-     * Deletes a role from the Caronte server.
-     *
-     * @param  string $uriApplicationRole Application role URI identifier.
-     * @return array{success: bool, data: string|null, error: string|null}
+     * @return array{status: int, message: string, data: mixed, errors: array<int|string, mixed>}
      */
-    public static function deleteRole(string $uriApplicationRole): array
+    public static function syncConfiguredRoles(): array
     {
-        return RoleApi::deleteRole($uriApplicationRole);
+        $roles = array_map(
+            fn(array $role): array => [
+                'name' => $role['name'],
+                'description' => $role['description'],
+            ],
+            static::getConfiguredRoles()
+        );
+
+        return RoleApi::syncRoles($roles);
     }
 }

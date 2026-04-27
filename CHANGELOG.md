@@ -11,6 +11,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - No changes yet.
 
+## [2.1.0] - 2026-04-27 "Sentinel"
+
+### Added
+
+- `CARONTE_TLS_VERIFY` configuration option: TLS certificate verification can now be toggled independently from `CARONTE_ALLOW_HTTP_REQUESTS`.
+- `caronte.application` middleware alias (`ResolveApplicationToken`): validates `X-Application-Token` header for server-to-server routes and binds `CaronteApplicationContext`.
+- `caronte.tenant` middleware alias (`ResolveTenantContext`): resolves tenant from `X-Tenant-Id` header (or JWT claim fallback) and sets `equidna/bee-hive` `TenantContext`.
+- `CaronteHttpClient` — dedicated HTTP client wrapping auth and application requests with proper headers.
+- `ApplicationToken` support class for generating and matching application tokens (`base64(sha1(APP_ID) + ":" + APP_SECRET)`).
+- `CaronteResponse` support class standardising the API response envelope shape.
+- `ConfiguredRoles` support class encapsulating `config('caronte.roles')` logic; always injects `root`.
+- `RequestContext` support class for per-request data propagation.
+- `TenantContextResolver` support class with three-step fallback chain: route/request parameter → BeeHive context → JWT `id_tenant` claim.
+- `CaronteApplicationContext` HTTP context class bound into the container on successful application-token validation.
+- `CaronteTenantResolver` tenancy resolver integrating with `equidna/bee-hive`.
+- `CaronteApiException` exception for non-2xx responses from the Caronte server.
+- `GuardsManagement` console concern enforcing `caronte.management.enabled` guard across all management commands.
+- `SendsPasswordRecovery` and `SendsTwoFactorChallenge` contracts abstracting notification delivery.
+- `PasswordRecoveryMail` and `TwoFactorChallengeMail` mailables for host-side email delivery (`CARONTE_NOTIFICATION_DELIVERY=host`).
+- `LaravelPasswordRecoverySender` and `LaravelTwoFactorChallengeSender` notification sender implementations.
+- New Artisan commands (replacing the legacy monolithic command set):
+  - `caronte:admin` — interactive TUI menu.
+  - `caronte:roles:sync [--dry-run]` — syncs configured roles to the Caronte server.
+  - `caronte:users:list [--tenant=] [--search=] [--all]` — lists users.
+  - `caronte:users:create [--tenant=] [--name=] [--email=] [--password=] [--role=]*` — creates a user.
+  - `caronte:users:update [--tenant=] [--uri-user=] [--name=]` — updates a user.
+  - `caronte:users:delete [--tenant=] [--uri-user=]` — deletes a user.
+  - `caronte:users:roles:sync [--tenant=] [--uri-user=] [--role=]*` — syncs roles for a user.
+- Management UI user-detail view (`management/user-detail`) for both Blade and Inertia rendering.
+- `users_table` migration: added `id_tenant` column for BeeHive tenant association.
+- Comprehensive documentation suite in `doc/`:
+  - `deployment-instructions.md`
+  - `api-documentation.md`
+  - `routes-documentation.md`
+  - `artisan-commands.md`
+  - `tests-documentation.md`
+  - `architecture-diagrams.md` (C4, container, component, and sequence diagrams)
+  - `monitoring.md`
+  - `business-logic-and-core-processes.md`
+  - `open-questions-and-assumptions.md`
+- 9 focused Feature tests replacing the previous smoke-test suite:
+  - `AuthContractTest`, `CommandBehaviorTest`, `CommandBehaviorWhenManagementDisabledTest`, `ConfigurationValidationTest`, `ManagementUiTest`, `ManagementUiWhenDisabledTest`, `MiddlewareBehaviorTest`, `RouteRegistrationTest`, `RouteRegistrationWhenDisabledTest`.
+- `.env.example` updated with all supported environment variables.
+
+### Changed
+
+- **Default issuer validation is now `true`**: `CARONTE_ENFORCE_ISSUER` defaults to `true`; JWT issuer claim is validated on every request by default. See migration notes in `BREAKING_CHANGES.md`.
+- `routes/web.php` restructured: explicit HTTP-verb groupings, management routes use a dedicated closure group.
+- `CaronteToken` refactored: token exchange and signature checks isolated; static `$exchanging` guard prevents recursive exchange.
+- `CaronteRequest` refactored: all methods delegate to `CaronteHttpClient`.
+- `CaronteRoleManager` refactored: uses `ConfiguredRoles` and `RoleApi`; `previewSync()` and `syncConfiguredRoles()` are the canonical entry points.
+- `CaronteServiceProvider` refactored: middleware registration extracted; commands registered conditionally on console.
+- `PermissionHelper` refactored: `hasApplication()` and `hasRoles()` both use `ApplicationToken::matches()` and `ConfiguredRoles` internally.
+- `ValidateSession` updated: forwards renewed JWT in `X-User-Token` response header for SPA/API clients.
+- All four controllers (`AuthController`, `ManagementController`, `UserController`, `RoleController`) refactored for domain separation and consistency.
+- `ClientApi` and `RoleApi` refactored to use `CaronteHttpClient`.
+- CSS, Blade views, and Inertia JSX pages overhauled for visual and structural consistency.
+- `ManagementController@dashboard()` adds pagination.
+- `README.md` overhauled: installation, configuration, middleware reference, command reference, and architecture overview.
+- `logoutAll` behaviour clarified: revokes sessions only for the current Caronte application, not globally across all apps.
+
+### Removed
+
+- `CaronteCommand` base class (replaced by `GuardsManagement` concern).
+- Monolithic `ManagementRoles` and `ManagementUsers` command classes.
+- Individual legacy commands: `CreateRole`, `DeleteRole`, `ShowRoles`, `UpdateRole`, `AttachRoles`, `DeleteRolesUser`, `ShowRolesByUser`.
+- Legacy smoke tests: `RoutesSmokeTest`, `PublishCommandsTest`.
+
+### Security
+
+- JWT issuer claim validation is now **on by default**, eliminating a class of token-forgery risk in installations that did not explicitly configure issuer verification.
+
 ## [2.0.0] - 2026-04-13
 
 ### Breaking Changes

@@ -1,38 +1,32 @@
 <!doctype html>
-<html lang="{{ app()->getLocale() }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" href="/assets/icon.png" type="image/icon type">
-    <title>{{ config('app.name') }}</title>
+    <title>{{ data_get($branding ?? [], 'app_name', config('app.name')) }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ asset('vendor/caronte/css/custom.css') }}" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --caronte-accent: {{ data_get($branding ?? [], 'accent', '#0f766e') }};
+        }
+    </style>
 </head>
 
-<body>
-    @include('caronte::partials.messages')
-    <main role="main">
-        @yield('content')
-    </main>
+<body class="@yield('body_class', 'caronte-auth-shell')">
+    <div class="caronte-shell">
+        <main class="caronte-shell__content">
+            @include('caronte::partials.messages')
+            @yield('content')
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
-
-@stack('scripts')
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{{ asset('vendor/caronte/js/caronte-management/create.js') }}"></script>
-<script src="{{ asset('vendor/caronte/js/caronte-management/roles.js') }}"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(function() {
-            const mess = document.querySelector(".alert.alert-success.alert-dismissible");
-            if (mess) {
-                mess.remove();
-            }
-        }, 3500)
-    });
-</script>
 
 </html>

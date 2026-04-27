@@ -1,38 +1,61 @@
 <?php
 
-/**
- * Console command to update user information by URI and name.
- *
- * PHP 8.1+
- *
- * @package   Ometra\Caronte\Console\Commands\Users
- * @author    Gabriel Ruelas <gruelas@gruelas.com>
- * @license   https://opensource.org/licenses/MIT MIT License
- * @link      https://github.com/Ometra-Core/mx.ometra.caronte-client Documentation
- */
-
 namespace Ometra\Caronte\Console\Commands\Users;
 
-use Ometra\Caronte\Api\ClientApi;
 use Illuminate\Console\Command;
+use Ometra\Caronte\Api\ClientApi;
+use Ometra\Caronte\Console\Concerns\GuardsManagement;
 
 class UpdateUser extends Command
 {
-    protected $signature = 'caronte-client:update-user {uri_user} {name_user}';
-    protected $description = 'Update a user within the application';
+    use GuardsManagement;
 
-    public function handle()
+    protected $signature = 'caronte:users:update
+        {uri_user? : Caronte user URI}
+        {--tenant= : Tenant identifier required for user-scoped Caronte endpoints}
+        {--name= : Updated display name}';
+
+    protected $description = 'Update a user name in Caronte.';
+
+    public function handle(): int
     {
-        $uri_user = $this->argument('uri_user');
-        $name_user = $this->argument('name_user');
-        $newName = $this->ask('Escribe el nuevo nombre del usuario:');
-        $response = ClientApi::updateUser(uri_user: $uri_user, name: $newName);
-        if (!$response['success']) {
-            $this->error("Error al actualizar el usuario: " . $response['error']);
-            return 1;
+        if (!$this->ensureManagementEnabled()) {
+            return self::FAILURE;
         }
-        $this->info("¡Listo! El usuario '{$name_user}' ha sido actualizado exitosamente.");
 
-        return 0;
+        $uriUser = trim((string) ($this->argument('uri_user') ?: $this->ask('User URI')));
+        $name = trim((string) ($this->option('name') ?: $this->ask('New display name')));
+
+        if ($uriUser === '' || $name === '') {
+            $this->error('User URI and name are required.');
+
+            return self::FAILURE;
+        }
+
+        try {
+            $response = ClientApi::updateUser($uriUser, ['name' => $name], $this->resolveTenant());
+            $this->info($response['message']);
+
+            return self::SUCCESS;
+        } catch (\Throwable $exception) {
+            $this->error($exception->getMessage());
+
+            return self::FAILURE;
+        }
+    }
+
+    private function resolveTenant(): string
+    {
+        $tenant = trim((string) $this->option('tenant'));
+
+        if ($tenant === '') {
+            $tenant = trim((string) $this->ask('Tenant identifier'));
+        }
+
+        if ($tenant === '') {
+            throw new \RuntimeException('The --tenant option is required for user management commands.');
+        }
+
+        return $tenant;
     }
 }

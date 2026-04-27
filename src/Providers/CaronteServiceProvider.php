@@ -1,184 +1,127 @@
 <?php
 
-/**
- * Service provider for Caronte Client package registration and bootstrapping.
- *
- * PHP 8.1+
- *
- * @package   Ometra\Caronte\Providers
- * @author    Gabriel Ruelas <gruelas@gruelas.com>
- * @license   https://opensource.org/licenses/MIT MIT License
- * @link      https://github.com/Ometra-Core/mx.ometra.caronte-client Documentation
- */
-
 namespace Ometra\Caronte\Providers;
 
 use Illuminate\Foundation\AliasLoader;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
-use Equidna\Toolkit\Exceptions\ConflictException;
 use Inertia\Inertia;
-use Exception;
-
+use Ometra\Caronte\Api\CaronteHttpClient;
+use Ometra\Caronte\Caronte;
 use Ometra\Caronte\Console\Commands\ManagementCaronte;
-use Ometra\Caronte\Console\Commands\ManagementRoles;
-use Ometra\Caronte\Console\Commands\ManagementUsers;
-use Ometra\Caronte\Console\Commands\Roles\CreateRole;
-use Ometra\Caronte\Console\Commands\Roles\DeleteRole;
-use Ometra\Caronte\Console\Commands\Roles\ShowRoles;
-use Ometra\Caronte\Console\Commands\Roles\UpdateRole;
-use Ometra\Caronte\Console\Commands\Users\AttachRoles;
+use Ometra\Caronte\Console\Commands\Roles\SyncRoles;
 use Ometra\Caronte\Console\Commands\Users\CreateUser;
-use Ometra\Caronte\Console\Commands\Users\DeleteRolesUser;
-use Ometra\Caronte\Console\Commands\Users\ShowRolesByUser;
+use Ometra\Caronte\Console\Commands\Users\DeleteUser;
+use Ometra\Caronte\Console\Commands\Users\ListUsers;
+use Ometra\Caronte\Console\Commands\Users\SyncUserRoles;
 use Ometra\Caronte\Console\Commands\Users\UpdateUser;
-use Ometra\Caronte\Facades\Caronte;
+use Ometra\Caronte\Contracts\SendsPasswordRecovery;
+use Ometra\Caronte\Contracts\SendsTwoFactorChallenge;
+use Ometra\Caronte\Facades\Caronte as CaronteFacade;
 use Ometra\Caronte\Helpers\PermissionHelper;
+use Ometra\Caronte\Http\Middleware\ResolveApplicationToken;
+use Ometra\Caronte\Http\Middleware\ResolveTenantContext;
 use Ometra\Caronte\Http\Middleware\ValidateRoles;
 use Ometra\Caronte\Http\Middleware\ValidateSession;
+use Ometra\Caronte\Notifications\LaravelPasswordRecoverySender;
+use Ometra\Caronte\Notifications\LaravelTwoFactorChallengeSender;
+use Ometra\Caronte\Support\ConfiguredRoles;
 
 class CaronteServiceProvider extends ServiceProvider
 {
-    /**
-     * Registers package services and merges configuration.
-     *
-     * @return void
-     */
-    public function register()
+    public function register(): void
     {
-        $this->app->singleton(
-            Caronte::class,
-            fn() => new Caronte()
-        );
-
         $this->mergeConfigFrom(__DIR__ . '/../../config/caronte.php', 'caronte');
+
+        $this->app->singleton(Caronte::class, fn() => new Caronte());
+        $this->app->singleton(CaronteHttpClient::class, fn() => new CaronteHttpClient());
+
+        $this->app->bind(SendsTwoFactorChallenge::class, LaravelTwoFactorChallengeSender::class);
+        $this->app->bind(SendsPasswordRecovery::class, LaravelPasswordRecoverySender::class);
     }
 
-    /**
-     * Boots package resources, routes, and publishable assets.
-     *
-     * @param  Router $router  Router instance for registering middleware aliases.
-     * @return void
-     * @throws ConflictException  When required configuration values are missing.
-     */
-    public function boot(Router $router)
+    public function boot(Router $router): void
     {
         if ($this->shouldValidateCaronteConfig()) {
             $this->validateCaronteConfig();
         }
 
-        //Registers the Caronte alias and facade.
         $loader = AliasLoader::getInstance();
-        $loader->alias('Caronte', Caronte::class);
+        $loader->alias('Caronte', CaronteFacade::class);
         $loader->alias('PermissionHelper', PermissionHelper::class);
 
-        //Registers the middleware
-        $router->aliasMiddleware('Caronte.ValidateSession', ValidateSession::class);
-        $router->aliasMiddleware('Caronte.ValidateRoles', ValidateRoles::class);
+        $router->aliasMiddleware('caronte.session', ValidateSession::class);
+        $router->aliasMiddleware('caronte.roles', ValidateRoles::class);
+        $router->aliasMiddleware('caronte.application', ResolveApplicationToken::class);
+        $router->aliasMiddleware('caronte.tenant', ResolveTenantContext::class);
 
-        //Registers the base Routes for clients
-        Route::prefix(config('caronte.ROUTES_PREFIX'))->middleware(['web'])->group(
-            function () {
-                $this->loadRoutesFrom(__DIR__ . '/../../routes/web.php');
-            }
-        );
+        Route::middleware(['web'])->group(function (): void {
+            $this->loadRoutesFrom(__DIR__ . '/../../routes/web.php');
+        });
 
         $this->loadViewsFrom(__DIR__ . '/../../resources/views', 'caronte');
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
 
-        //Config
         $this->publishes(
             [
                 __DIR__ . '/../../config/caronte.php' => config_path('caronte.php'),
             ],
-            [
-                'caronte:config',
-                'caronte',
-            ]
+            ['caronte:config', 'caronte']
         );
 
-        //Views
         $this->publishes(
             [
                 __DIR__ . '/../../resources/views' => resource_path('views/vendor/caronte'),
             ],
-            [
-                'caronte:views',
-                'caronte',
-            ]
+            ['caronte:views', 'caronte']
         );
 
-        //Assets
         $this->publishes(
             [
                 __DIR__ . '/../../resources/assets' => public_path('vendor/caronte'),
             ],
-            [
-                'caronte-assets',
-                'caronte',
-            ]
+            ['caronte-assets', 'caronte']
         );
 
-        //Inertia
         $this->publishes(
             [
                 __DIR__ . '/../../resources/js' => resource_path('js/vendor/caronte'),
             ],
-            [
-                'caronte:inertia',
-                'caronte',
-            ]
+            ['caronte:inertia', 'caronte']
         );
 
-        //Migrations
         $this->publishes(
             [
                 __DIR__ . '/../../database/migrations' => database_path('migrations'),
             ],
-            [
-                'caronte:migrations',
-                'caronte'
-            ]
+            ['caronte:migrations', 'caronte']
         );
 
-        //Commands
         if ($this->app->runningInConsole()) {
             $this->commands([
-                AttachRoles::class,
-                ManagementRoles::class,
-                ManagementUsers::class,
-                CreateRole::class,
-                UpdateRole::class,
-                DeleteRole::class,
-                ShowRoles::class,
-                CreateUser::class,
-                DeleteRolesUser::class,
-                UpdateUser::class,
-                ShowRolesByUser::class,
                 ManagementCaronte::class,
+                SyncRoles::class,
+                ListUsers::class,
+                CreateUser::class,
+                UpdateUser::class,
+                DeleteUser::class,
+                SyncUserRoles::class,
             ]);
         }
 
-
-        Inertia::share('caronte_user', function () {
-            try {
-                if (Caronte::checkToken()) {
-                    return Caronte::getUser();
-                }
-            } catch (Exception $e) {
-                return null;
-            }
-
-            return null;
+        Inertia::share('caronte', function (): array {
+            return [
+                'branding' => config('caronte.ui.branding', []),
+                'management' => [
+                    'enabled' => (bool) config('caronte.management.enabled', true),
+                    'access_roles' => ConfiguredRoles::accessRoles(),
+                ],
+                'user' => CaronteFacade::checkToken() ? CaronteFacade::getUser() : null,
+            ];
         });
     }
 
-    /**
-     * Validates required Caronte config values and fails early with a clear message.
-     *
-     * @throws ConflictException  When one or more required config values are missing.
-     */
     protected function validateCaronteConfig(): void
     {
         $required = [
@@ -189,31 +132,37 @@ class CaronteServiceProvider extends ServiceProvider
         ];
 
         $missing = [];
+
         foreach ($required as $key) {
             $value = config($key);
-            if (is_null($value) || $value === '') {
+
+            if ($value === null || $value === '') {
                 $missing[] = $key;
             }
         }
 
-        if (config('caronte.ENFORCE_ISSUER')) {
-            if (empty(config('caronte.ISSUER_ID'))) {
-                $missing[] = 'caronte.ISSUER_ID';
-            }
+        if (config('caronte.ENFORCE_ISSUER') && empty(config('caronte.ISSUER_ID'))) {
+            $missing[] = 'caronte.ISSUER_ID';
         }
 
-        if (!empty($missing)) {
-            $msg = "Caronte: Missing required configuration: " . implode(', ', $missing) . ". Please check your .env and config/caronte.php.";
-            throw new ConflictException($msg);
+        if ($missing !== []) {
+            throw new \InvalidArgumentException(
+                'Caronte: Missing required configuration: ' . implode(', ', $missing) . '.'
+            );
         }
+
+        $url = (string) config('caronte.URL');
+        $scheme = parse_url($url, PHP_URL_SCHEME);
+
+        if ($scheme !== 'https' && ! (bool) config('caronte.ALLOW_HTTP_REQUESTS', false)) {
+            throw new \InvalidArgumentException(
+                'Caronte: CARONTE_URL must use HTTPS unless CARONTE_ALLOW_HTTP_REQUESTS=true.'
+            );
+        }
+
+        ConfiguredRoles::validate();
     }
 
-    /**
-     * Determines whether strict config validation must run in current execution context.
-     *
-     * In console mode, only Caronte's own commands should require strict validation.
-     * This prevents unrelated tooling commands from failing before .env is generated.
-     */
     protected function shouldValidateCaronteConfig(): bool
     {
         if (!$this->app->runningInConsole()) {
@@ -227,6 +176,6 @@ class CaronteServiceProvider extends ServiceProvider
             return false;
         }
 
-        return str_starts_with($command, 'caronte-client:');
+        return str_starts_with($command, 'caronte:');
     }
 }

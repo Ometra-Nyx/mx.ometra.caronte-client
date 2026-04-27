@@ -1,129 +1,236 @@
-/* --- Paleta de Colores Personalizada --- */
 :root {
-    --custom-bg-subtle: #e2e6e1;
-    /* Fondo gris verdoso claro para contenedores */
-    --custom-bg-active: #c4cdc5;
-    /* Color más oscuro para elementos activos/encabezados */
-    --custom-input-bg: #e9ecef;
-    /* Fondo gris para los inputs */
+    --caronte-accent: #0f766e;
+    --caronte-accent-dark: #115e59;
+    --caronte-surface: #f8fafc;
+    --caronte-panel: #ffffff;
+    --caronte-border: #d9e2ec;
+    --caronte-text: #102a43;
+    --caronte-muted: #486581;
+    --caronte-wash: linear-gradient(145deg, rgba(15, 118, 110, 0.12), rgba(248, 250, 252, 0.95));
 }
 
-/* --- 1. Estilos de Navegación Superior --- */
-.custom-nav-block {
-    background-color: var(--custom-bg-subtle);
+body {
+    margin: 0;
+    font-family: "Manrope", sans-serif;
+    background: radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 32%),
+        linear-gradient(180deg, #eef5f3 0%, #f8fafc 45%, #f4f7fb 100%);
+    color: var(--caronte-text);
 }
 
-.custom-btn-active {
-    background-color: var(--custom-bg-active);
-    color: #000;
-    border: 1px solid #b3beb5;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.075);
+.caronte-shell {
+    min-height: 100vh;
 }
 
-.custom-btn-light {
-    background-color: #fff;
-    color: #000;
-    border: 1px solid #fff;
+.caronte-auth-shell .caronte-shell__content {
+    min-height: 100vh;
 }
 
-/* --- 2. Estilos de las Pestañas (Tabs) --- */
-.custom-tabs-container {
-    background-color: var(--custom-bg-subtle);
-    /* Importante: quitamos el redondeo inferior para unir con la tarjeta */
-    border-bottom-left-radius: 0 !important;
-    border-bottom-right-radius: 0 !important;
+.caronte-management-shell .caronte-shell__content {
+    min-height: 100vh;
 }
 
-.custom-tab-link {
-    color: #495057;
-    /* Color de texto inactivo */
-    font-weight: 500;
+.caronte-auth {
+    min-height: calc(100vh - 2rem);
+    display: grid;
+    place-items: center;
+    padding: 2rem 1rem;
 }
 
-.custom-tab-link.active {
-    background-color: var(--custom-bg-active) !important;
-    color: #000 !important;
-    border: 1px solid #b3beb5;
+.caronte-auth__panel {
+    width: min(100%, 540px);
 }
 
-/* --- 3. Estilos de la Tarjeta y Formulario --- */
-.custom-card {
-    /* Quitamos el redondeo superior para que se pegue a las pestañas */
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
-    border: 1px solid var(--custom-bg-subtle);
+.caronte-kicker {
+    display: inline-flex;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(15, 118, 110, 0.1);
+    color: var(--caronte-accent-dark);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-bottom: 1rem;
 }
 
-.custom-card-header {
-    background-color: var(--custom-bg-active);
-    border-bottom: none;
-    /* Aseguramos que no tenga esquinas redondeadas */
-    border-radius: 0 !important;
+.caronte-title {
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1.05;
+    font-weight: 800;
+    margin-bottom: 0.75rem;
 }
 
-/* Inputs con fondo gris */
-.form-control.custom-input {
-    background-color: var(--custom-input-bg);
-    border: 1px solid #ced4da;
+.caronte-copy {
+    color: var(--caronte-muted);
+    max-width: 64ch;
 }
 
-.form-control.custom-input:focus {
-    background-color: #fff;
-    /* Al hacer foco se vuelve blanco */
-    border-color: #a0a0a0;
-    box-shadow: none;
+.caronte-card {
+    background: var(--caronte-panel);
+    border: 1px solid rgba(217, 226, 236, 0.9);
+    border-radius: 24px;
+    box-shadow: 0 24px 55px rgba(15, 23, 42, 0.08);
+    padding: 1.5rem;
 }
 
-/* Botones inferiores */
-.custom-btn-submit {
-    background-color: var(--custom-bg-active);
-    color: #000;
-    font-weight: 500;
+.caronte-card__header {
+    margin-bottom: 1.5rem;
 }
 
-.custom-btn-submit:hover {
-    background-color: #b3beb5;
+.caronte-card__header h2 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    margin-bottom: 0.35rem;
 }
 
-.custom-btn-cancel {
-    background-color: var(--custom-input-bg);
-    color: #000;
-    font-weight: 500;
+.caronte-card__header p {
+    margin-bottom: 0;
+    color: var(--caronte-muted);
 }
 
-.bgManagement {
-    background-color: #CAD2C5;
-    height: 60px;
+.caronte-form {
+    display: grid;
+    gap: 1rem;
 }
 
-.form-control:focus {
-    border-color: #CAD2C5;
-    box-shadow: 0 0 0 0.25rem rgba(202, 210, 197, 0.25);
+.caronte-form .form-label {
+    font-weight: 700;
+    margin-bottom: 0.45rem;
 }
 
-
-.custom-btn-submit {
-    background-color: #CAD2C5 !important;
-    border: 1px solid #8e968a !important;
-    color: #000 !important;
-    border-radius: 6px;
-    font-weight: 500;
+.caronte-form .form-control,
+.caronte-form .form-select,
+.caronte-form textarea {
+    border-radius: 14px;
+    border-color: var(--caronte-border);
+    background: #fbfdff;
+    padding: 0.85rem 1rem;
 }
 
-.custom-btn-submit:hover {
-    background-color: #b8c0b4 !important;
-    /* Un poco más oscuro al pasar el mouse */
+.caronte-form .form-control:focus,
+.caronte-form textarea:focus {
+    border-color: rgba(15, 118, 110, 0.45);
+    box-shadow: 0 0 0 0.25rem rgba(15, 118, 110, 0.12);
 }
 
-
-.custom-btn-cancel {
-    background-color: #E8E8E8 !important;
-    border: 1px solid #A0A0A0 !important;
-    color: #000 !important;
-    border-radius: 6px;
-    font-weight: 500;
+.caronte-btn-primary,
+.caronte-btn-secondary {
+    border-radius: 14px;
+    padding: 0.85rem 1rem;
+    font-weight: 700;
 }
 
-.custom-btn-cancel:hover {
-    background-color: #dcdcdc !important;
+.caronte-btn-primary {
+    background: var(--caronte-accent);
+    color: #fff;
+    border: 1px solid var(--caronte-accent);
+}
+
+.caronte-btn-primary:hover,
+.caronte-btn-primary:focus {
+    background: var(--caronte-accent-dark);
+    color: #fff;
+    border-color: var(--caronte-accent-dark);
+}
+
+.caronte-btn-secondary {
+    background: #fff;
+    color: var(--caronte-text);
+    border: 1px solid var(--caronte-border);
+}
+
+.caronte-btn-secondary:hover,
+.caronte-btn-secondary:focus {
+    background: #f8fafc;
+    color: var(--caronte-text);
+}
+
+.caronte-card__footer {
+    margin-top: 1rem;
+    text-align: center;
+}
+
+.caronte-card__footer a,
+.caronte-backlink {
+    color: var(--caronte-accent-dark);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.caronte-management-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.caronte-status-list {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.caronte-status-list > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.9rem 1rem;
+    background: var(--caronte-wash);
+    border-radius: 16px;
+}
+
+.caronte-status-list__label {
+    color: var(--caronte-muted);
+    font-weight: 700;
+}
+
+.caronte-checkbox-list {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.caronte-checkbox {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--caronte-border);
+    border-radius: 16px;
+    background: #fbfdff;
+}
+
+.caronte-checkbox input {
+    margin-top: 0.35rem;
+}
+
+.caronte-checkbox span {
+    display: grid;
+}
+
+.caronte-checkbox small {
+    color: var(--caronte-muted);
+}
+
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-striped-bg: rgba(15, 118, 110, 0.03);
+}
+
+.table thead th {
+    border-bottom-width: 1px;
+    color: var(--caronte-muted);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.pagination {
+    --bs-pagination-active-bg: var(--caronte-accent);
+    --bs-pagination-active-border-color: var(--caronte-accent);
+    --bs-pagination-color: var(--caronte-accent-dark);
+    --bs-pagination-focus-box-shadow: 0 0 0 0.2rem rgba(15, 118, 110, 0.15);
+}
+
+@media (max-width: 991.98px) {
+    .caronte-management-header {
+        flex-direction: column;
+    }
 }

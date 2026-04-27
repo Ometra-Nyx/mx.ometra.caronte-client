@@ -1,219 +1,223 @@
 <?php
 
-/**
- * User management controller for CRUD and role assignment operations.
- *
- * PHP 8.1+
- *
- * @package   Ometra\Caronte\Http\Controllers
- * @author    Gabriel Ruelas <gruelas@gruelas.com>
- * @license   https://opensource.org/licenses/MIT MIT License
- */
-
 namespace Ometra\Caronte\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Validation\Rule;
+use Illuminate\View\View;
+use Inertia\Response as InertiaResponse;
 use Ometra\Caronte\Api\ClientApi;
+use Ometra\Caronte\Support\CaronteResponse;
+use Ometra\Caronte\Support\ConfiguredRoles;
+use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Handles user CRUD operations and user-role management.
- *
- * Provides endpoints for creating, updating, and deleting users, as well as
- * listing users and managing their role assignments.
- */
 class UserController extends BaseController
 {
-    /**
-     * Store a new user (REST alias for create).
-     *
-     * @param  Request         $request  HTTP request with user/role data.
-     * @return RedirectResponse          Redirect with success/error message.
-     */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): Response
     {
-        return $this->create($request);
-    }
+        $roleUris = $this->configuredRoleUris();
 
-    /**
-     * Create a new user with initial role assignment.
-     *
-     * @param  Request         $request  HTTP request with user/role data.
-     * @return RedirectResponse          Redirect with success/error message.
-     */
-    public function create(Request $request): RedirectResponse
-    {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'roles' => 'required|array|min:1',
-            'roles.*' => 'string',
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'roles' => ['array'],
+            'roles.*' => ['string', Rule::in($roleUris)],
         ]);
 
-        $name     = $request->input('name');
-        $email    = $request->input('email');
-        $roles    = $request->input('roles', []);
-        $password = bin2hex(random_bytes(4));
+        try {
+            $response = ClientApi::createUser([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => $validated['password'],
+                'password_confirmation' => $validated['password_confirmation'],
+            ]);
 
-        $response = ClientApi::createUser(
-            name: $name,
-            email: $email,
-            password: $password,
-            password_confirmation: $password,
-        );
+            $user = $response['data']['user'] ?? null;
 
-        if (!$response['success']) {
-            return redirect()
-                ->back()
-                ->with('error', 'Error al crear al usuario: ' . $response['error']);
-        }
+            if (!is_array($user) || !isset($user['uri_user'])) {
+                throw new \RuntimeException('Caronte did not return the created user.');
+            }
 
-        $responseData = json_decode($response['data'], true);
-        $user         = $responseData['user'] ?? null;
-
-        if (!$user || !isset($user['uri_user'])) {
-            return redirect()
-                ->back()
-                ->with('error', 'Error al crear al usuario: respuesta invalida.');
-        }
-
-        foreach ($roles as $roleUri) {
-            $assignResponse = ClientApi::assignRoleToUser(
-                uriUser: $user['uri_user'],
-                uriApplicationRole: $roleUri,
+            ClientApi::syncUserRoles(
+                uriUser: (string) $user['uri_user'],
+                roleUris: array_values($validated['roles'] ?? [])
             );
 
-            if (!$assignResponse['success']) {
-                return redirect()
-                    ->back()
-                    ->with('error', 'Error al enlazar el rol: ' . $assignResponse['error']);
-            }
+            return redirect()
+                ->route('caronte.management.users.show', ['uri_user' => $user['uri_user']])
+                ->with('success', $response['message']);
+        } catch (\Exception $exception) {
+            return CaronteResponse::handleException(
+                exception: $exception,
+                forwardUrl: route('caronte.management.dashboard')
+            );
         }
-
-        return redirect()
-            ->back()
-            ->with('success', 'Usuario creado correctamente.');
     }
 
-    /**
-     * Update an existing user's name and roles.
-     *
-     * @param  Request         $request  HTTP request with updated user data.
-     * @return RedirectResponse          Redirect with success/error message.
-     */
-    public function update(Request $request): RedirectResponse
+    public function show(string $uri_user): View|InertiaResponse|Response
     {
-        $request->validate([
-            'uri_user' => 'required|string',
-            'name' => 'required|string|max:255',
-            'roles' => 'array',
-            'roles.*' => 'string',
+        try {
+            $userResponse = ClientApi::showUser($uri_user);
+            $rolesResponse = ClientApi::showUserRoles($uri_user);
+
+            $user = is_array($userResponse['data']) ? $userResponse['data'] : [];
+            $assignedRoles = is_array($rolesResponse['data']) ? $rolesResponse['data'] : [];
+            $assignedRoleUris = array_values(array_filter(array_map(
+                fn(array $role): ?string => $role['uri_applicationRole'] ?? null,
+                $assignedRoles
+            )));
+
+            return $this->toView('management.user-detail', [
+                'branding' => $this->branding(),
+                'user' => $user,
+                'assigned_roles' => $assignedRoles,
+                'assigned_role_uris' => $assignedRoleUris,
+                'configured_roles' => ConfiguredRoles::all(),
+                'features' => config('caronte.management.features', []),
+                'csrf_token' => csrf_token(),
+                'routes' => [
+                    'dashboard' => route('caronte.management.dashboard'),
+                    'update' => route('caronte.management.users.update', ['uri_user' => $uri_user]),
+                    'delete' => route('caronte.management.users.delete', ['uri_user' => $uri_user]),
+                    'syncRoles' => route('caronte.management.users.roles.sync', ['uri_user' => $uri_user]),
+                    'storeMetadata' => route('caronte.management.users.metadata.store', ['uri_user' => $uri_user]),
+                    'deleteMetadata' => route('caronte.management.users.metadata.delete', ['uri_user' => $uri_user]),
+                ],
+            ], true);
+        } catch (\Exception $exception) {
+            return CaronteResponse::handleException(
+                exception: $exception,
+                forwardUrl: route('caronte.management.dashboard')
+            );
+        }
+    }
+
+    public function update(Request $request, string $uri_user): Response
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
         ]);
 
-        $uri_user = $request->input('uri_user');
-        $name     = $request->input('name');
-        $roles    = $request->input('roles', []);
+        try {
+            $response = ClientApi::updateUser($uri_user, [
+                'name' => $validated['name'],
+            ]);
 
-        $response = ClientApi::updateUser(
-            uri_user: $uri_user,
-            name: $name,
-        );
-
-        if (!$response['success']) {
             return redirect()
-                ->back()
-                ->with('error', 'Error al actualizar el usuario: ' . $response['error']);
+                ->route('caronte.management.users.show', ['uri_user' => $uri_user])
+                ->with('success', $response['message']);
+        } catch (\Exception $exception) {
+            return CaronteResponse::handleException(
+                exception: $exception,
+                forwardUrl: route('caronte.management.users.show', ['uri_user' => $uri_user])
+            );
         }
+    }
 
-        $currentRolesResponse = ClientApi::showUserRoles(uri_user: $uri_user);
+    public function syncRoles(Request $request, string $uri_user): Response
+    {
+        $roleUris = $this->configuredRoleUris();
 
-        if (!$currentRolesResponse['success']) {
-            return redirect()
-                ->back()
-                ->with('error', 'Error al obtener los roles del usuario: ' . $currentRolesResponse['error']);
-        }
+        $validated = $request->validate([
+            'roles' => ['array'],
+            'roles.*' => ['string', Rule::in($roleUris)],
+        ]);
 
-        $currentRoles = json_decode($currentRolesResponse['data'] ?? '[]', true);
-        $currentRoleUris = array_filter(
-            array_map(
-                fn($role) => $role['uri_applicationRole'] ?? null,
-                $currentRoles,
-            )
-        );
-
-        $requestedRoles = array_values(array_unique(array_filter($roles)));
-
-        $rolesToAttach = array_diff($requestedRoles, $currentRoleUris);
-        $rolesToDetach = array_diff($currentRoleUris, $requestedRoles);
-
-        foreach ($rolesToAttach as $roleUri) {
-            $assignResponse = ClientApi::assignRoleToUser(
+        try {
+            $response = ClientApi::syncUserRoles(
                 uriUser: $uri_user,
-                uriApplicationRole: $roleUri,
+                roleUris: array_values($validated['roles'] ?? [])
             );
 
-            if (!$assignResponse['success']) {
-                return redirect()
-                    ->back()
-                    ->with('error', 'Error al enlazar el rol: ' . $assignResponse['error']);
-            }
-        }
-
-        foreach ($rolesToDetach as $roleUri) {
-            $detachResponse = ClientApi::deleteUserRole(
-                uri_user: $uri_user,
-                uri_applicationRole: $roleUri,
-            );
-
-            if (!$detachResponse['success']) {
-                return redirect()
-                    ->back()
-                    ->with('error', 'Error al eliminar el rol: ' . $detachResponse['error']);
-            }
-        }
-
-        return redirect()
-            ->back()
-            ->with('success', 'Usuario actualizado correctamente.');
-    }
-
-    /**
-     * Delete a user account.
-     *
-     * @param  Request         $request  HTTP request with user to delete.
-     * @return RedirectResponse          Redirect with success/error message.
-     */
-    public function delete(Request $request): RedirectResponse
-    {
-        $uri_user = $request->input('uri_user');
-        $response = ClientApi::deleteUser(uri_user: $uri_user);
-
-        if (!$response['success']) {
             return redirect()
-                ->back()
-                ->with('error', 'Error al eliminar el usuario: ' . $response['error']);
+                ->route('caronte.management.users.show', ['uri_user' => $uri_user])
+                ->with('success', $response['message']);
+        } catch (\Exception $exception) {
+            return CaronteResponse::handleException(
+                exception: $exception,
+                forwardUrl: route('caronte.management.users.show', ['uri_user' => $uri_user])
+            );
+        }
+    }
+
+    public function storeMetadata(Request $request, string $uri_user): Response
+    {
+        if (!config('caronte.management.features.metadata', true)) {
+            return redirect()->route('caronte.management.users.show', ['uri_user' => $uri_user])
+                ->with('warning', 'Metadata management is disabled.');
         }
 
-        return redirect()
-            ->back()
-            ->with('success', 'Usuario eliminado correctamente.');
+        $validated = $request->validate([
+            'key' => ['required', 'string', 'max:255'],
+            'value' => ['nullable', 'string'],
+        ]);
+
+        try {
+            $response = ClientApi::storeUserMetadata($uri_user, [
+                $validated['key'] => $validated['value'] ?? '',
+            ]);
+
+            return redirect()
+                ->route('caronte.management.users.show', ['uri_user' => $uri_user])
+                ->with('success', $response['message']);
+        } catch (\Exception $exception) {
+            return CaronteResponse::handleException(
+                exception: $exception,
+                forwardUrl: route('caronte.management.users.show', ['uri_user' => $uri_user])
+            );
+        }
+    }
+
+    public function deleteMetadata(Request $request, string $uri_user): Response
+    {
+        if (!config('caronte.management.features.metadata', true)) {
+            return redirect()->route('caronte.management.users.show', ['uri_user' => $uri_user])
+                ->with('warning', 'Metadata management is disabled.');
+        }
+
+        $validated = $request->validate([
+            'key' => ['required', 'string', 'max:255'],
+        ]);
+
+        try {
+            $response = ClientApi::deleteUserMetadata($uri_user, $validated['key']);
+
+            return redirect()
+                ->route('caronte.management.users.show', ['uri_user' => $uri_user])
+                ->with('success', $response['message']);
+        } catch (\Exception $exception) {
+            return CaronteResponse::handleException(
+                exception: $exception,
+                forwardUrl: route('caronte.management.users.show', ['uri_user' => $uri_user])
+            );
+        }
+    }
+
+    public function delete(string $uri_user): Response
+    {
+        try {
+            $response = ClientApi::deleteUser($uri_user);
+
+            return redirect()
+                ->route('caronte.management.dashboard')
+                ->with('success', $response['message']);
+        } catch (\Exception $exception) {
+            return CaronteResponse::handleException(
+                exception: $exception,
+                forwardUrl: route('caronte.management.dashboard')
+            );
+        }
     }
 
     /**
-     * List users with optional search filter.
-     *
-     * @param  Request     $request  HTTP request with optional search parameter.
-     * @return JsonResponse           JSON list of users.
+     * @return array<int, string>
      */
-    public function index(Request $request): JsonResponse
+    private function configuredRoleUris(): array
     {
-        $usersApp = $request->input('usersApp') == 'false' ? false : true;
-        $response = ClientApi::showUsers(
-            paramSearch: $request->input('search') ?? '',
-            usersApp: $usersApp
-        );
-
-        return response()->json($response);
+        return array_values(array_map(
+            fn(array $role): string => $role['uri_applicationRole'],
+            ConfiguredRoles::all()
+        ));
     }
 }

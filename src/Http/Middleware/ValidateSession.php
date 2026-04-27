@@ -1,66 +1,42 @@
 <?php
 
-/**
- * @author Gabriel Ruelas
- * @license MIT
- * @version 1.4.0
- *
- */
-
 namespace Ometra\Caronte\Http\Middleware;
 
-use Symfony\Component\HttpFoundation\Response;
+use Closure;
 use Illuminate\Http\Request;
 use Ometra\Caronte\Facades\Caronte;
 use Ometra\Caronte\Helpers\PermissionHelper;
-use Equidna\Toolkit\Helpers\ResponseHelper;
-use Equidna\Toolkit\Helpers\RouteHelper;
-use Equidna\Toolkit\Exceptions\UnauthorizedException;
-use Exception;
-use Closure;
+use Ometra\Caronte\Support\CaronteResponse;
+use Ometra\Caronte\Support\RequestContext;
+use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Middleware to validate the presence of a Caronte token and user access to the application.
- *
- * @author Gabriel Ruelas
- * @license MIT
- * @version 1.4.0
- */
 class ValidateSession
 {
-    /**
-     * Handle an incoming request and check for a valid Caronte token and application access.
-     *
-     * @param Request $request HTTP request instance.
-     * @param Closure $next Next middleware closure.
-     * @return Response
-     */
     public function handle(Request $request, Closure $next): Response
     {
         try {
             $token = Caronte::getToken();
-            if (PermissionHelper::hasApplication()) {
-                $response = $next($request);
-            } else {
-                $response = ResponseHelper::forbidden(
-                    message: 'User does not have access to this application',
-                    errors: [
-                        'User does not have access to this application'
-                    ],
-                    forward_url: config('caronte.LOGIN_URL')
+
+            if (!PermissionHelper::hasApplication()) {
+                return CaronteResponse::forbidden(
+                    message: 'User does not have access to this application.',
+                    errors: ['User does not have access to this application.'],
+                    forwardUrl: (string) config('caronte.LOGIN_URL')
                 );
             }
-        } catch (Exception | UnauthorizedException $e) {
-            return ResponseHelper::unauthorized(
-                message: $e->getMessage(),
-                forward_url: config('caronte.LOGIN_URL')
+
+            $response = $next($request);
+
+            if (Caronte::tokenWasExchanged() && RequestContext::isApi()) {
+                $response->headers->set('X-User-Token', $token->toString());
+            }
+
+            return $response;
+        } catch (\Throwable $exception) {
+            return CaronteResponse::unauthorized(
+                message: $exception->getMessage(),
+                forwardUrl: (string) config('caronte.LOGIN_URL')
             );
         }
-
-        if (Caronte::tokenWasExchanged() && RouteHelper::isAPI()) {
-            $response->headers->set('new_token', $token->toString());
-        }
-
-        return $response;
     }
 }
