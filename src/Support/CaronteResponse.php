@@ -164,7 +164,12 @@ class CaronteResponse
             return $response
                 ->with('error', $sanitizedMessage)
                 ->withErrors($sanitizedErrors === [] ? ['general' => [$sanitizedMessage]] : $sanitizedErrors)
-                ->withInput();
+                ->withInput(request()->except([
+                    'password',
+                    'password_confirmation',
+                    'current_password',
+                    'new_password',
+                ]));
         }
 
         return $response->with('success', $sanitizedMessage);
