@@ -1,5 +1,69 @@
 # Breaking Changes
 
+## v2.1.0
+
+### What Changed
+
+1. **JWT issuer validation now defaults to `true`** (`CARONTE_ENFORCE_ISSUER`).
+2. **Legacy Artisan commands removed** — the monolithic and individual role/user command classes were replaced by a new, focused command suite.
+
+### Why
+
+- Issuer validation was silently disabled by default, creating a window for token forgery from any HS256-compatible source sharing the same secret. Enforcing it by default closes this gap.
+- The legacy command set (`ManagementRoles`, `ManagementUsers`, individual `CreateRole`/`DeleteRole`/etc.) was split into composable, focused commands aligned with the domain model.
+
+---
+
+### Migration: Issuer Validation Default
+
+**Before (≤ v2.0.0)**
+
+Issuer validation was **disabled** by default. The JWT `iss` claim was not checked unless you explicitly set:
+
+```dotenv
+CARONTE_ENFORCE_ISSUER=true
+CARONTE_ISSUER_ID=caronte
+```
+
+**After (v2.1.0+)**
+
+Issuer validation is **enabled** by default with `CARONTE_ISSUER_ID=caronte`.
+
+If your Caronte server issues tokens with a different issuer identifier, set:
+
+```dotenv
+CARONTE_ISSUER_ID=your-custom-issuer
+```
+
+If you need to disable issuer validation entirely (not recommended):
+
+```dotenv
+CARONTE_ENFORCE_ISSUER=false
+```
+
+**Affected surface:** `src/CaronteToken.php`, `config/caronte.php`.
+
+---
+
+### Migration: Artisan Commands
+
+The following commands **no longer exist** as of v2.1.0:
+
+| Removed command                    | Replacement                                           |
+| ---------------------------------- | ----------------------------------------------------- |
+| `caronte-client:management` (TUI)  | `caronte:admin`                                       |
+| Monolithic role management         | `caronte:roles:sync [--dry-run]`                      |
+| Monolithic user management         | `caronte:users:list`, `caronte:users:create`, etc.    |
+| `AttachRoles` / `DeleteRolesUser`  | `caronte:users:roles:sync`                            |
+| `CreateRole` / `UpdateRole` / etc. | `caronte:roles:sync` (single sync command)            |
+| `ShowRolesByUser`                  | `caronte:users:list` with `--search` + inspect output |
+
+**Update any scripts, CI pipelines, or documentation** that reference the old command signatures.
+
+**Affected surface:** `src/Console/Commands/`.
+
+---
+
 ## v2.0.0
 
 ### What Changed

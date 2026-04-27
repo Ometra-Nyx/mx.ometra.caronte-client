@@ -1,154 +1,107 @@
-# Caronte Client
+# README (Root of the Project)
 
-`ometra/caronte-client` is a Laravel package that connects a host application to the Caronte authentication server using the current server contract.
+> This documentation follows the project's Coding Standards Guide and PHPDoc Style Guide, as established in the repository's instruction files.
 
-It provides:
+---
 
-- User authentication against Caronte
-- Token validation and token exchange
-- Host endpoint protection with `X-Application-Token` and `X-Tenant-Id`
-- Config-driven role synchronization
-- Optional user-management routes and UI
-- Blade and Inertia surfaces for auth and management flows
+## Project Overview
 
-## Current contract
+**`ometra/caronte-client`** is a **Laravel package** that integrates any Laravel application with the central **Caronte** authentication server. It provides distributed JWT-based authentication, a built-in user-management UI, and a suite of Artisan commands — all without duplicating auth logic in every consuming application.
 
-This package targets the current Caronte API surface:
+**Primary audience:** Internal development teams building Laravel applications that share a common Caronte identity provider.
 
-- `X-Application-Token`
-- `X-User-Token`
-- `X-Tenant-Id`
-- `/api/auth`
-- `/api/applications`
-- `/api/users`
+**Main use cases:**
 
-Legacy `Authorization: Bearer`, `Authorization: Token`, `/api/user/*`, and `/api/app/*` assumptions are not part of this package anymore.
+- Drop-in JWT authentication middleware for web and API routes.
+- Ready-to-use login, logout, 2FA, and password-recovery flows.
+- Centralized user and role management surface (Blade or Inertia).
+- Server-to-server API calls from the host app to the Caronte server using application tokens.
 
-## Requirements
+---
 
-- PHP `^8.2`
-- Laravel `^12.0`
-- `equidna/bee-hive ^1.0`
-- `equidna/laravel-toolkit >=1.0.0`
-- `lcobucci/jwt ^5.3`
-- `inertiajs/inertia-laravel ^2.0`
+## Project Type & Tech Summary
 
-## Installation
+| Attribute        | Value                                            |
+| ---------------- | ------------------------------------------------ |
+| Type             | **Laravel Package** (library)                    |
+| Package name     | `ometra/caronte-client` v2.0.0                   |
+| PHP              | `^8.2`                                           |
+| Laravel          | `^12.0`                                          |
+| JWT library      | `lcobucci/jwt ^5.3` + `lcobucci/clock ^3.2`      |
+| UI adapter       | `inertiajs/inertia-laravel ^2.0` (optional)      |
+| Multi-tenancy    | `equidna/bee-hive ^1.0`                          |
+| Helpers          | `equidna/laravel-toolkit >=1.0.0`                |
+| Database         | Any Laravel-supported RDBMS (InnoDB recommended) |
+| Cache/Queue      | Not directly used by this package                |
+| External service | The **Caronte server** (HTTP API)                |
 
-```bash
-composer require ometra/caronte-client
-```
+---
 
-Publish package resources as needed:
+## Quick Start
 
-```bash
-php artisan vendor:publish --tag=caronte
-php artisan vendor:publish --tag=caronte:config
-php artisan vendor:publish --tag=caronte:views
-php artisan vendor:publish --tag=caronte:inertia
-php artisan vendor:publish --tag=caronte-assets
-php artisan vendor:publish --tag=caronte:migrations
-```
+1. **Require the package**
 
-If you enable local user synchronization, publish migrations and run them:
+   ```bash
+   composer require ometra/caronte-client
+   ```
 
-```bash
-php artisan migrate
-```
+2. **Publish the config**
 
-## Required configuration
+   ```bash
+   php artisan vendor:publish --tag=caronte:config
+   ```
 
-Set these values in the host application:
+3. **Set the three required secrets in `.env`**
 
-```env
-CARONTE_URL=https://caronte.example.com
-CARONTE_APP_ID=app.example.com
-CARONTE_APP_SECRET=replace-with-the-secret-issued-by-caronte
-```
+   ```dotenv
+   CARONTE_URL=https://your-caronte-server.example.com/
+   CARONTE_APP_ID=your-app-id
+   CARONTE_APP_SECRET=your-app-secret-minimum-32-chars
+   ```
 
-`CARONTE_APP_ID` is the Caronte application CN. The package derives the hashed `app_id` internally.
+4. **Run migrations** (creates local `Users` and `UsersMetadata` tables)
 
-Important optional settings:
+   ```bash
+   php artisan migrate
+   ```
 
-```env
-CARONTE_ENFORCE_ISSUER=true
-CARONTE_ISSUER_ID=caronte
-CARONTE_ALLOW_HTTP_REQUESTS=false
-CARONTE_TLS_VERIFY=true
-CARONTE_2FA=false
-CARONTE_NOTIFICATION_DELIVERY=server
-CARONTE_USE_INERTIA=false
-CARONTE_MANAGEMENT_ENABLED=true
-CARONTE_MANAGEMENT_ACCESS_ROLES=root
-```
+5. **Sync roles** defined in `config/caronte.php` to the Caronte server
 
-`CARONTE_URL` must use HTTPS unless `CARONTE_ALLOW_HTTP_REQUESTS=true`. `CARONTE_TLS_VERIFY=false` disables certificate verification for local/self-signed environments only; it is independent from allowing plain HTTP.
+   ```bash
+   php artisan caronte:roles:sync
+   ```
 
-## Roles
+6. **Protect routes** using the provided middleware aliases
 
-Roles are defined only in `config/caronte.php`:
+   ```php
+   Route::middleware(['caronte.session'])->group(function () {
+       // authenticated routes
+   });
+   ```
 
-```php
-'roles' => [
-    'root' => 'Default super administrator role',
-    'admin' => 'Administrative access',
-],
-```
+7. Visit `/login` (or the path configured by `CARONTE_LOGIN_URL`) to authenticate.
 
-Rules:
+For full deployment details, see [Deployment Instructions](doc/deployment-instructions.md).
 
-- `root` is always present
-- role names are normalized to lowercase
-- management access roles must exist in `caronte.roles`
-- roles are synchronized with Caronte through `caronte:roles:sync`
+---
 
-## Commands
+## Documentation Index
 
-Available Artisan commands:
+- [Deployment Instructions](doc/deployment-instructions.md)
+- [API Documentation](doc/api-documentation.md)
+- [Routes Documentation](doc/routes-documentation.md)
+- [Artisan Commands](doc/artisan-commands.md)
+- [Tests Documentation](doc/tests-documentation.md)
+- [Architecture Diagrams](doc/architecture-diagrams.md)
+- [Monitoring](doc/monitoring.md)
+- [Business Logic & Core Processes](doc/business-logic-and-core-processes.md)
+- [Open Questions & Assumptions](doc/open-questions-and-assumptions.md)
 
-- `php artisan caronte:admin`
-- `php artisan caronte:roles:sync`
-- `php artisan caronte:users:list --tenant=tenant-id`
-- `php artisan caronte:users:create --tenant=tenant-id`
-- `php artisan caronte:users:update {uri_user} --tenant=tenant-id`
-- `php artisan caronte:users:delete {uri_user} --tenant=tenant-id`
-- `php artisan caronte:users:roles:sync {uri_user} --tenant=tenant-id`
+---
 
-Notes:
+## Standards Note
 
-- `caronte:roles:sync` reads `config('caronte.roles')`
-- `caronte:roles:sync --dry-run` shows the normalized role set without pushing changes
-- user-management commands fail fast when `caronte.management.enabled=false`
-- user-management commands are tenant-scoped and require `--tenant` unless tenant context is already resolved
-
-## Middleware
-
-Middleware aliases registered by the package:
-
-- `caronte.session`
-- `caronte.roles`
-- `caronte.application`
-- `caronte.tenant`
-
-Example usage:
-
-```php
-Route::middleware(['caronte.session'])->group(function () {
-    Route::get('/dashboard', fn () => 'ok');
-});
-
-Route::middleware(['caronte.session', 'caronte.roles:root,admin'])->group(function () {
-    Route::get('/admin', fn () => 'ok');
-});
-
-Route::middleware(['caronte.application', 'caronte.tenant'])->group(function () {
-    Route::get('/internal/users', fn () => 'ok');
-});
-```
-
-`caronte.tenant` runs after `caronte.application`, requires `X-Tenant-Id`, normalizes tenant context for the request lifecycle, and binds that tenant to Caronte tenant-scoped `/api/users` calls.
-
-## Auth and management UI
+All code examples and class references in this documentation follow the project's **Coding Standards Guide** and **PHPDoc Style Guide** (available as instruction files in the repository). Namespace references use the `Ometra\Caronte\` root namespace; file paths are relative to the package root.
 
 The package ships with publishable Blade and Inertia views for:
 
