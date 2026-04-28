@@ -1,6 +1,6 @@
 <?php
 
-namespace Ometra\Caronte\Api;
+namespace Ometra\Caronte\Support;
 
 use Equidna\BeeHive\Tenancy\TenantContext;
 use Illuminate\Http\Client\Response;
@@ -14,7 +14,7 @@ use Ometra\Caronte\Facades\Caronte;
  * Provides common logic for request building, response parsing, and tenant context
  * resolution. Subclasses must implement getBaseUrl() and makeApplicationToken().
  */
-abstract class BaseHttpClient
+abstract class CaronteHttpClient
 {
     /**
      * Make an application-authenticated request.

@@ -3,16 +3,17 @@
 namespace Ometra\Caronte\Api;
 
 use Ometra\Caronte\Support\CaronteApplicationToken;
+use Ometra\Caronte\Support\CaronteHttpClient;
 
 /**
  * HTTP client for communicating with the Caronte authentication server.
  *
  * Provides three authentication modes:
  * - authRequest: Application + optional user token (for auth operations)
- * - applicationRequest: Application token only (inherited from BaseHttpClient)
- * - userRequest: Current user's JWT token (inherited from BaseHttpClient)
+ * - applicationRequest: Application token only (inherited from CaronteHttpClient)
+ * - userRequest: Current user's JWT token (inherited from CaronteHttpClient)
  */
-final class CaronteApiClient extends BaseHttpClient
+final class CaronteApiClient extends CaronteHttpClient
 {
     /**
      * Make an auth operation request (with optional user token override).

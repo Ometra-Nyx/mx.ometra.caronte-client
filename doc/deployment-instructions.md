@@ -1,190 +1,200 @@
 # Deployment Instructions
 
-## System Requirements
+## Prerequisites
 
-| Requirement    | Minimum                                                      |
-| -------------- | ------------------------------------------------------------ |
-| PHP            | `^8.2`                                                       |
-| PHP extensions | `mbstring`, `openssl`, `PDO`, `json`, `tokenizer`, `xml`     |
-| Laravel        | `^12.0`                                                      |
-| Database       | Any PDO-compatible RDBMS; InnoDB engine recommended          |
-| Caronte server | A running Caronte authentication server reachable over HTTPS |
-| Composer       | `^2.0`                                                       |
+- PHP `^8.2`
+- Laravel `^12.0`
+- A running Caronte authentication server (external)
+- Database connection configured in the host application
+- Composer
 
 ---
 
-## Environment Configuration
-
-Only the following variables **must** be present in the host application's `.env`. All other feature flags live in `config/caronte.php` with defaults.
-
-```dotenv
-# ── Required ────────────────────────────────────────────────────────────────
-CARONTE_URL=https://your-caronte-server.example.com/
-CARONTE_APP_CN=your-app-cn
-CARONTE_APP_SECRET=your-app-secret-minimum-32-characters-long
-
-# ── Optional overrides ───────────────────────────────────────────────────────
-# JWT issuer identifier (default: "caronte")
-CARONTE_ISSUER_ID=caronte
-
-# Whether to enforce the JWT issuer claim (default: true)
-CARONTE_ENFORCE_ISSUER=true
-
-# Enable two-factor authentication flow (default: false)
-CARONTE_2FA=false
-
-# Allow HTTP (non-TLS) connections to the Caronte server (default: false)
-CARONTE_ALLOW_HTTP_REQUESTS=false
-
-# Verify TLS certificates on outbound requests (default: true)
-CARONTE_TLS_VERIFY=true
-
-# Whether to write Caronte user data into the local database on each request (default: false)
-CARONTE_UPDATE_LOCAL_USER=false
-
-# Notification delivery: "server" (Caronte sends emails) | "host" (package sends emails)
-CARONTE_NOTIFICATION_DELIVERY=server
-
-# Session key used to store the user JWT (default: "caronte.user_token")
-CARONTE_SESSION_KEY=caronte.user_token
-
-# Route prefix for auth routes (empty = no prefix)
-CARONTE_ROUTES_PREFIX=
-
-# URL to redirect to after successful login (default: "/")
-CARONTE_SUCCESS_URL=/
-
-# Login page path (default: "/login")
-CARONTE_LOGIN_URL=/login
-
-# HTTP client settings
-CARONTE_HTTP_TIMEOUT=10
-CARONTE_HTTP_RETRIES=1
-CARONTE_HTTP_RETRY_SLEEP=150
-
-# Management UI
-CARONTE_MANAGEMENT_ENABLED=true
-CARONTE_MANAGEMENT_ROUTE_PREFIX=caronte/management
-CARONTE_MANAGEMENT_ACCESS_ROLES=root
-
-# Inertia adapter (set to true if the host app uses Inertia.js)
-CARONTE_USE_INERTIA=false
-
-# Database table prefix (e.g. "caronte_" produces "caronte_Users")
-CARONTE_TABLE_PREFIX=
-
-# UI branding
-CARONTE_UI_APP_NAME="My Application"
-CARONTE_UI_HEADLINE="Secure access"
-CARONTE_UI_SUBHEADLINE="Authenticate users with Caronte."
-CARONTE_UI_SUPPORT_EMAIL=support@example.com
-CARONTE_UI_LOGO_URL=
-CARONTE_UI_ACCENT=#0f766e
-```
-
-> **Security note:** `CARONTE_APP_SECRET` must be **at least 32 characters** long. The package enforces this at runtime in `CaronteToken::getConfig()` (`src/CaronteToken.php`). Never commit real secrets to version control.
-
----
-
-## Initial Setup Steps
-
-### 1. Install the package
+## 1. Installation
 
 ```bash
 composer require ometra/caronte-client
 ```
 
-### 2. Publish the configuration
+The package auto-registers via Laravel's package discovery (`extra.laravel.providers`). No manual service-provider registration is required.
+
+---
+
+## 2. Configuration
+
+### 2.1 Publish the config file
 
 ```bash
 php artisan vendor:publish --tag=caronte:config
 ```
 
-This places `config/caronte.php` in the host application.
+This creates `config/caronte.php` in the host application.
 
-### 3. Set environment variables
+### 2.2 Required environment variables
 
-Add the required `.env` keys listed above.
+Only three secrets belong in `.env`:
 
-### 4. Run migrations
+```env
+CARONTE_URL=https://your-caronte-server.example.com
+CARONTE_APP_CN=your-app-canonical-name
+CARONTE_APP_SECRET=a-strong-secret-at-least-32-chars
+```
+
+| Variable | Required | Description |
+|---|---|---|
+| `CARONTE_URL` | Yes | Base URL of the Caronte authentication server |
+| `CARONTE_APP_CN` | Yes | Canonical name that identifies this application in Caronte |
+| `CARONTE_APP_SECRET` | Yes | Shared secret for application token generation |
+| `CARONTE_ISSUER_ID` | No | Overrides JWT issuer claim validation |
+
+> All other configuration lives in `config/caronte.php` with hardcoded defaults. Do **not** add feature flags to `.env`.
+
+### 2.3 Key configuration options (excerpt)
+
+```php
+return [
+    'use_2fa'               => false,        // Enable two-factor authentication
+    'allow_http_requests'   => false,        // Allow non-TLS (dev only)
+    'tls_verify'            => true,         // Verify TLS certificates
+    'update_local_user'     => true,         // Sync user to local DB on login
+
+    // 'server': Caronte sends; 'host': this app sends via Mailable classes
+    'notification_delivery' => 'server',
+
+    'routes_prefix' => 'caronte',
+    'success_url'   => '/',
+    'login_url'     => '/caronte/login',
+
+    'http' => [
+        'timeout'     => 10,   // seconds
+        'retries'     => 2,
+        'retry_sleep' => 500,  // ms between retries
+    ],
+
+    'roles' => [
+        'admin'  => 'Administrator',
+        'editor' => 'Content editor',
+    ],
+
+    'management' => [
+        'enabled'      => true,
+        'route_prefix' => 'caronte/management',
+        'access_roles' => ['admin'],
+        'use_inertia'  => false,
+        'features'     => [
+            'metadata'         => false,
+            'profile_pictures' => false,
+        ],
+    ],
+
+    'table_prefix' => '',   // Prefix for package DB tables
+];
+```
+
+---
+
+## 3. Database Migrations
+
+| Migration file | Table created |
+|---|---|
+| `users_table.php` | `{prefix}Users` |
+| `user_metadata_table.php` | `{prefix}UserMetadata` |
 
 ```bash
 php artisan migrate
 ```
 
-The package ships two migrations (auto-loaded via `CaronteServiceProvider`):
-
-- `{prefix}Users` — stores local copies of authenticated users.
-- `{prefix}UsersMetadata` — stores scoped key/value metadata for users.
-
-To publish migrations instead of auto-loading them:
+To publish migration files for customisation:
 
 ```bash
 php artisan vendor:publish --tag=caronte:migrations
 ```
 
-### 5. Sync roles
+> Set `table_prefix` before running the first migration.
 
-Define roles in `config/caronte.php`:
+---
 
-```php
-'roles' => [
-    'root'  => 'Default super administrator role',
-    'admin' => 'Administrative access',
-],
-```
+## 4. Publishing Assets
 
-Then push them to the Caronte server:
+| Tag | Published to |
+|---|---|
+| `caronte:config` | `config/caronte.php` |
+| `caronte:views` | `resources/views/vendor/caronte` |
+| `caronte:migrations` | `database/migrations` |
+| `caronte:inertia` | `resources/js/vendor/caronte` |
+| `caronte-assets` | `public/vendor/caronte` |
 
 ```bash
+# Publish everything at once
+php artisan vendor:publish --tag=caronte
+```
+
+---
+
+## 5. Middleware
+
+Three aliases are registered automatically by `CaronteServiceProvider`:
+
+| Alias | Class | Purpose |
+|---|---|---|
+| `caronte.session` | `ValidateUserToken` | Validates and auto-renews the user JWT |
+| `caronte.roles` | `ValidateUserRoles` | Checks the user has the specified roles |
+| `caronte.application` | `ResolveApplicationContext` | Validates incoming application tokens |
+
+```php
+// Auth guard
+Route::middleware('caronte.session')->group(function () { ... });
+
+// Auth + role check
+Route::middleware(['caronte.session', 'caronte.roles:admin,editor'])->group(...);
+
+// Service-to-service
+Route::middleware('caronte.application')->group(function () { ... });
+
+// Service-to-service with mandatory tenant header
+Route::middleware('caronte.application:tenant_required')->group(function () { ... });
+```
+
+---
+
+## 6. Notification Setup (Host Delivery Mode)
+
+When `notification_delivery = 'host'`, the package dispatches emails itself. The sender classes are swappable:
+
+```php
+// config/caronte.php
+'two_factor_sender'        => \Ometra\Caronte\Notifications\LaravelTwoFactorChallengeSender::class,
+'password_recovery_sender' => \Ometra\Caronte\Notifications\LaravelPasswordRecoverySender::class,
+```
+
+Bind a custom implementation in your `AppServiceProvider`:
+
+```php
+use Ometra\Caronte\Contracts\SendsTwoFactorChallenge;
+
+$this->app->bind(SendsTwoFactorChallenge::class, YourCustomSender::class);
+```
+
+---
+
+## 7. Initial Role Sync
+
+```bash
+# Preview
+php artisan caronte:roles:sync --dry-run
+
+# Apply
 php artisan caronte:roles:sync
 ```
 
-### 6. (Optional) Publish views
-
-```bash
-php artisan vendor:publish --tag=caronte:views
-```
-
-Views land in `resources/views/vendor/caronte/`.
-
-### 7. (Optional) Publish Inertia pages
-
-If the host app uses Inertia.js, set `CARONTE_USE_INERTIA=true` and publish the Vue/React pages:
-
-```bash
-php artisan vendor:publish --tag=caronte:inertia
-```
-
-Pages land in `resources/js/vendor/caronte/`.
-
-### 8. (Optional) Publish assets
-
-```bash
-php artisan vendor:publish --tag=caronte-assets
-```
-
-CSS and JS assets land in `public/vendor/caronte/`.
-
 ---
 
-## Deployment Workflow
+## 8. Post-Deployment Checklist
 
-The package is a dependency of a host Laravel application. A typical deployment sequence is:
-
-```bash
-git pull
-composer install --no-dev --optimize-autoloader
-php artisan migrate --force
-php artisan config:clear
-php artisan route:clear
-php artisan view:clear
-```
-
-No queue workers or scheduler configuration is required by the package itself.
-
----
-
-## Notes on Multi-Tenancy
-
-If `equidna/bee-hive` is configured in the host app, the `caronte.application` middleware will set the active tenant ID from the authenticated user or the `X-Tenant-Id` request header. Use `caronte.application:tenant_required` for routes that must reject requests without tenant context. Downstream Caronte API calls read the tenant from BeeHive's `TenantContext`.
+- [ ] `CARONTE_URL`, `CARONTE_APP_CN`, `CARONTE_APP_SECRET` present in `.env`
+- [ ] `php artisan migrate` completed
+- [ ] `php artisan caronte:roles:sync` completed
+- [ ] Management UI accessible at `/{management.route_prefix}`
+- [ ] At least one user linked to `admin` (or configured access role) via `caronte:users:roles:sync`
+- [ ] `tls_verify = true` for production
+- [ ] `allow_http_requests = false` for production

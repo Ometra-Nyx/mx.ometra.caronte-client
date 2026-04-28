@@ -2,8 +2,8 @@
 
 namespace Ometra\Caronte;
 
-use Ometra\Caronte\Api\BaseHttpClient;
 use Ometra\Caronte\Support\CaronteApplicationToken;
+use Ometra\Caronte\Support\CaronteHttpClient;
 
 /**
  * HTTP client for inter-service communication between host app instances.
@@ -28,7 +28,7 @@ use Ometra\Caronte\Support\CaronteApplicationToken;
  *       appSecret: 'service-b-secret',
  *   );
  */
-class ServiceClient extends BaseHttpClient
+class CaronteServiceClient extends CaronteHttpClient
 {
     public function __construct(
         private readonly string $baseUrl,

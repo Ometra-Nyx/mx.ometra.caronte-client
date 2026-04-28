@@ -7,6 +7,7 @@ use Exception;
 use Lcobucci\JWT\Token\Plain;
 use Ometra\Caronte\Exceptions\TenantMissingException;
 use Ometra\Caronte\Models\CaronteUser;
+use Ometra\Caronte\CaronteUserToken;
 use Ometra\Caronte\Support\RouteMode;
 use stdClass;
 
@@ -33,7 +34,7 @@ final class Caronte
             throw new UnauthorizedException('Token not found');
         }
 
-        return CaronteToken::validateToken($token);
+        return CaronteUserToken::validateToken($token);
     }
 
     public function getUser(): stdClass

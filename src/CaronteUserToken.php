@@ -20,7 +20,7 @@ use Ometra\Caronte\Support\CaronteApplicationToken;
 use Ometra\Caronte\Support\RouteMode;
 use RuntimeException;
 
-final class CaronteToken
+final class CaronteUserToken
 {
     public const MINIMUM_KEY_LENGTH = 32;
 

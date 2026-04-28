@@ -7,7 +7,7 @@ use Illuminate\View\View;
 use Inertia\Response as InertiaResponse;
 use Ometra\Caronte\Api\AuthApi;
 use Ometra\Caronte\Api\ClientApi;
-use Ometra\Caronte\CaronteToken;
+use Ometra\Caronte\CaronteUserToken;
 use Ometra\Caronte\Contracts\SendsPasswordRecovery;
 use Ometra\Caronte\Contracts\SendsTwoFactorChallenge;
 use Ometra\Caronte\Exceptions\CaronteApiException;
@@ -100,7 +100,7 @@ class AuthController extends BaseController
             );
 
             $tokenString = (string) data_get($response, 'data.token', '');
-            $token = CaronteToken::validateToken($tokenString, skipExchange: true);
+            $token = CaronteUserToken::validateToken($tokenString, skipExchange: true);
 
             if (RouteMode::isWeb()) {
                 Caronte::saveToken($token->toString());
@@ -176,7 +176,7 @@ class AuthController extends BaseController
             $response = AuthApi::consumeTwoFactor($token);
 
             $tokenString = (string) data_get($response, 'data.token', '');
-            $validatedToken = CaronteToken::validateToken($tokenString, skipExchange: true);
+            $validatedToken = CaronteUserToken::validateToken($tokenString, skipExchange: true);
 
             if (RouteMode::isWeb()) {
                 Caronte::saveToken($validatedToken->toString());

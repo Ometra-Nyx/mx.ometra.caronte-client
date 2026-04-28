@@ -1,95 +1,65 @@
 # Routes Documentation
 
-## Registration
-
-Routes are registered by `Ometra\Caronte\Providers\CaronteServiceProvider` (`src/Providers/CaronteServiceProvider.php`) inside a `web` middleware group:
-
-```php
-Route::middleware(['web'])->group(function (): void {
-    $this->loadRoutesFrom(__DIR__ . '/../../routes/web.php');
-});
-```
-
-Source: `routes/web.php`.
+All routes are registered by `CaronteServiceProvider` inside the `web` middleware group. No API routes are provided.
 
 ---
 
-## Configuration
+## Route Configuration
 
-| Config key                        | `.env` variable                   | Default              |
-| --------------------------------- | --------------------------------- | -------------------- |
-| `caronte.routes_prefix`           | `CARONTE_ROUTES_PREFIX`           | `` (empty)           |
-| `caronte.login_url`               | `CARONTE_LOGIN_URL`               | `/login`             |
-| `caronte.management.enabled`      | `CARONTE_MANAGEMENT_ENABLED`      | `true`               |
-| `caronte.management.route_prefix` | `CARONTE_MANAGEMENT_ROUTE_PREFIX` | `caronte/management` |
-| `caronte.management.access_roles` | `CARONTE_MANAGEMENT_ACCESS_ROLES` | `root`               |
+| Config key | Default | Effect |
+|---|---|---|
+| `caronte.routes_prefix` | `caronte` | Prefix for all auth routes |
+| `caronte.management.enabled` | `true` | Enables management routes |
+| `caronte.management.route_prefix` | `caronte/management` | Prefix for management routes |
 
 ---
 
 ## Authentication Routes
 
-All routes are prefixed with `CARONTE_ROUTES_PREFIX` (default: none) and named under the `caronte.` namespace.
+These routes are always registered (cannot be disabled).
 
-| Method | URI                         | Route Name                                | Controller@Method                               | Middleware |
-| ------ | --------------------------- | ----------------------------------------- | ----------------------------------------------- | ---------- |
-| `GET`  | `/login`                    | `caronte.login.form`                      | `AuthController@loginForm`                      | `web`      |
-| `POST` | `/login`                    | `caronte.login`                           | `AuthController@login`                          | `web`      |
-| `POST` | `/logout`                   | `caronte.logout`                          | `AuthController@logout`                         | `web`      |
-| `POST` | `/2fa`                      | `caronte.2fa.request`                     | `AuthController@twoFactorTokenRequest`          | `web`      |
-| `GET`  | `/2fa/{token}`              | `caronte.2fa.login`                       | `AuthController@twoFactorTokenLogin`            | `web`      |
-| `GET`  | `/password/recover`         | `caronte.password.recover.form`           | `AuthController@passwordRecoverRequestForm`     | `web`      |
-| `POST` | `/password/recover`         | `caronte.password.recover.request`        | `AuthController@passwordRecoverRequest`         | `web`      |
-| `GET`  | `/password/recover/{token}` | `caronte.password.recover.validate-token` | `AuthController@passwordRecoverTokenValidation` | `web`      |
-| `POST` | `/password/recover/{token}` | `caronte.password.recover.submit`         | `AuthController@passwordRecover`                | `web`      |
+| Method | URI | Name | Middleware | Description |
+|---|---|---|---|---|
+| GET | `/{prefix}/login` | `caronte.login.form` | `web` | Show login form |
+| POST | `/{prefix}/login` | `caronte.login` | `web` | Submit credentials |
+| POST | `/{prefix}/logout` | `caronte.logout` | `web` | Log out |
+| GET | `/{prefix}/2fa` | `caronte.2fa.request` | `web` | Show 2FA challenge form |
+| POST | `/{prefix}/2fa` | `caronte.2fa.login` | `web` | Submit 2FA code |
+| GET | `/{prefix}/password/recovery` | `caronte.password.recover.form` | `web` | Show recovery form |
+| POST | `/{prefix}/password/recovery` | `caronte.password.recover.request` | `web` | Request recovery link |
+| GET | `/{prefix}/password/recovery/{token}` | `caronte.password.recover.consume.form` | `web` | Show new-password form |
+| POST | `/{prefix}/password/recovery/{token}` | `caronte.password.recover.consume` | `web` | Submit new password |
 
-> When `CARONTE_2FA=true`, the `GET /login` route renders the 2FA email-request form instead of the standard credential form.
+Default `{prefix}`: `caronte`
 
 ---
 
 ## Management Routes
 
-Registered only when `caronte.management.enabled` is `true`. Named under the `caronte.management.` namespace. Protected by `caronte.session` + `caronte.roles:{access_roles}`.
+Registered only when `caronte.management.enabled = true`.
 
-Base prefix: `caronte/management` (configurable via `CARONTE_MANAGEMENT_ROUTE_PREFIX`).
+All management routes require:
+- `caronte.session` (ValidateUserToken)
+- `caronte.roles:{access_roles}` (ValidateUserRoles)
 
-| Method   | URI                                            | Route Name                                 | Controller@Method                |
-| -------- | ---------------------------------------------- | ------------------------------------------ | -------------------------------- |
-| `GET`    | `caronte/management`                           | `caronte.management.dashboard`             | `ManagementController@dashboard` |
-| `POST`   | `caronte/management/roles/sync`                | `caronte.management.roles.sync`            | `RoleController@sync`            |
-| `POST`   | `caronte/management/users`                     | `caronte.management.users.store`           | `UserController@store`           |
-| `GET`    | `caronte/management/users/{uri_user}`          | `caronte.management.users.show`            | `UserController@show`            |
-| `PUT`    | `caronte/management/users/{uri_user}`          | `caronte.management.users.update`          | `UserController@update`          |
-| `DELETE` | `caronte/management/users/{uri_user}`          | `caronte.management.users.delete`          | `UserController@delete`          |
-| `PUT`    | `caronte/management/users/{uri_user}/roles`    | `caronte.management.users.roles.sync`      | `UserController@syncRoles`       |
-| `POST`   | `caronte/management/users/{uri_user}/metadata` | `caronte.management.users.metadata.store`  | `UserController@storeMetadata`   |
-| `DELETE` | `caronte/management/users/{uri_user}/metadata` | `caronte.management.users.metadata.delete` | `UserController@deleteMetadata`  |
+| Method | URI | Name | Description |
+|---|---|---|---|
+| GET | `/{mgmt_prefix}` | `caronte.management.dashboard` | Management dashboard |
+| POST | `/{mgmt_prefix}/roles/sync` | `caronte.management.roles.sync` | Sync roles to Caronte |
+| POST | `/{mgmt_prefix}/users` | `caronte.management.users.store` | Create a user |
+| GET | `/{mgmt_prefix}/users/{uri}` | `caronte.management.users.show` | Show user detail |
+| PUT | `/{mgmt_prefix}/users/{uri}` | `caronte.management.users.update` | Update user data |
+| DELETE | `/{mgmt_prefix}/users/{uri}` | `caronte.management.users.delete` | Delete user |
+| PUT | `/{mgmt_prefix}/users/{uri}/roles` | `caronte.management.users.roles.sync` | Sync user roles |
+| POST | `/{mgmt_prefix}/users/{uri}/metadata` | `caronte.management.users.metadata.store` | Store user metadata |
+| DELETE | `/{mgmt_prefix}/users/{uri}/metadata/{key}` | `caronte.management.users.metadata.delete` | Delete metadata key |
+
+Default `{mgmt_prefix}`: `caronte/management`
 
 ---
 
-## Middleware Aliases
+## Notes
 
-Registered by the service provider on the Laravel `Router`:
-
-| Alias                 | Class                                                      | Purpose                                                           |
-| --------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------- |
-| `caronte.session`     | `Ometra\Caronte\Http\Middleware\ValidateUserToken`         | Validates JWT; auto-renews expired tokens                         |
-| `caronte.roles`       | `Ometra\Caronte\Http\Middleware\ValidateUserRoles`         | Checks user has at least one of the given roles                   |
-| `caronte.application` | `Ometra\Caronte\Http\Middleware\ResolveApplicationContext` | Validates `X-Application-Token`; resolves optional tenant context |
-
-### Usage examples
-
-```php
-// Require authenticated session
-Route::middleware(['caronte.session'])->group(function () { /* … */ });
-
-// Require specific roles (root is always implicitly included)
-Route::middleware(['caronte.session', 'caronte.roles:admin,editor'])->group(function () { /* … */ });
-
-// Accept inbound server-to-server calls with optional tenant context
-Route::middleware(['caronte.application'])->group(function () { /* … */ });
-
-// Accept inbound server-to-server calls that require tenant context
-Route::middleware(['caronte.application:tenant_required'])->group(function () { /* … */ });
-```
-
-> **Order matters:** `caronte.session` must run before `caronte.roles`.
+- The `root` role is always treated as an access role regardless of `access_roles` configuration.
+- The management UI can render either Blade views or Inertia pages depending on `management.use_inertia`.
+- Views are loaded from `resources/views/vendor/caronte` if published, otherwise from the package.
