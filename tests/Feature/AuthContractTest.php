@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\ViewErrorBag;
+use Illuminate\Support\MessageBag;
 use Ometra\Caronte\Mail\PasswordRecoveryMail;
 use Ometra\Caronte\Mail\TwoFactorChallengeMail;
 use Ometra\Caronte\Support\ApplicationToken;
@@ -71,5 +73,55 @@ class AuthContractTest extends TestCase
 
         Mail::assertSent(TwoFactorChallengeMail::class);
         Mail::assertSent(PasswordRecoveryMail::class);
+    }
+
+    public function test_package_auth_views_render_without_explicit_branding(): void
+    {
+        $routes = [
+            'login' => '/login',
+            'passwordRecoverForm' => '/password/recover',
+            'passwordRecoverRequest' => '/password/recover',
+            'passwordRecoverSubmit' => '/password/recover/token',
+            'twoFactorRequest' => '/2fa',
+        ];
+
+        $this->assertStringContainsString('Sign in', view('caronte::auth.login', [
+            'routes' => $routes,
+            'callback_url' => null,
+        ])->render());
+
+        $this->assertStringContainsString('Password recovery', view('caronte::auth.password-recover-request', [
+            'routes' => $routes,
+        ])->render());
+    }
+
+    public function test_package_mailables_render_with_string_expiration(): void
+    {
+        $expiresAt = '2026-04-25T10:00:00Z';
+
+        $this->assertStringContainsString(
+            $expiresAt,
+            (new PasswordRecoveryMail('https://client.test/password/recover/example-token', $expiresAt))->render()
+        );
+
+        $this->assertStringContainsString(
+            $expiresAt,
+            (new TwoFactorChallengeMail('https://client.test/2fa/example-token', $expiresAt))->render()
+        );
+    }
+
+    public function test_flash_partial_deduplicates_error_messages(): void
+    {
+        session()->flash('error', 'Token not found');
+        session()->flash('message', 'Token not found');
+
+        $html = view('caronte::partials.messages', [
+            'errors' => (new ViewErrorBag())->put('default', new MessageBag([
+                'general' => 'Token not found',
+            ])),
+        ])->render();
+
+        $this->assertSame(1, substr_count($html, 'alert alert-danger'));
+        $this->assertSame(0, substr_count($html, 'alert alert-info'));
     }
 }

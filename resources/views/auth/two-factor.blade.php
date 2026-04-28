@@ -1,5 +1,7 @@
 @extends('caronte::layouts.base')
 
+@php($branding = $branding ?? config('caronte.ui.branding', []))
+
 @section('content')
     <section class="caronte-auth">
         <div class="caronte-auth__panel">

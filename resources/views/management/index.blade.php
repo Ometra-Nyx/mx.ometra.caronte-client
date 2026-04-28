@@ -1,5 +1,7 @@
 @extends('caronte::layouts.base')
 
+@php($branding = $branding ?? config('caronte.ui.branding', []))
+
 @section('body_class', 'caronte-management-shell')
 
 @section('content')
