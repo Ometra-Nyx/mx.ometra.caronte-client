@@ -1,5 +1,175 @@
 # Breaking Changes
 
+## v3.0.0
+
+### What Changed
+
+1. **`CARONTE_APP_ID` → `CARONTE_APP_CN`** — the environment variable identifying the application was renamed to match the canonical `app_cn` nomenclature.
+2. **Config keys normalised to `lower_snake_case`** — `app_id` → `app_cn`; references to `config('caronte.APP_ID')` or `config('caronte.ISSUER_ID')` must be updated.
+3. **Core class renames** — `CaronteToken` → `CaronteUserToken`; `ServiceClient` → `CaronteServiceClient`; `ApplicationToken` → `CaronteApplicationToken` (moved to `Support/` namespace).
+4. **`CaronteHttpClient` namespace change** — moved from `Ometra\Caronte\Api` to `Ometra\Caronte\Support`.
+5. **Middleware renames** — `ValidateSession` → `ValidateUserToken`; `ValidateRoles` → `ValidateUserRoles`.
+6. **Two middleware replaced by one** — `ResolveApplicationToken` and `ResolveTenantContext` are gone; their combined responsibility is now handled by `ResolveApplicationContext`.
+7. **`CaronteRequest` removed** — the legacy HTTP wrapper is gone; use `CaronteHttpClient` (`Ometra\Caronte\Support`) directly.
+8. **`CaronteRoleManager` removed** — use `RoleApi` directly for role synchronisation.
+9. **`GuardsManagement` concern removed** — Artisan commands requiring a management guard now use `BindsTenantContext`.
+10. **`RequestContext` and `TenantContextResolver` removed** — absorbed into `ResolveApplicationContext`.
+11. **`BaseApiClient` removed** — extend `CaronteApiClient` instead.
+12. **`ManagementCaronte` command class removed** — the `caronte:admin` interactive TUI is retained under a new direct implementation.
+
+### Why
+
+- **Naming consistency**: `CARONTE_APP_ID` conflicted with the canonical identifier (`Common Name`) used by the Caronte server. `CARONTE_APP_CN` (Common Name) aligns client and server terminology.
+- **API surface pruning**: `CaronteRequest`, `CaronteRoleManager`, and `BaseApiClient` were fragile thin wrappers that leaked implementation details. Removing them collapses the call chain, reduces confusion, and makes the real entry-points (`CaronteHttpClient`, `RoleApi`) first-class.
+- **Middleware consolidation**: `ResolveApplicationToken` and `ResolveTenantContext` always ran together and shared state; merging them into `ResolveApplicationContext` eliminates ordering bugs and duplication.
+- **`lower_snake_case` config**: Aligns with Laravel conventions and removes an entire class of subtle bugs from case-sensitive config lookups.
+
+---
+
+### Migration: Environment Variable Rename
+
+**Before (≤ v2.1.1)**
+
+```dotenv
+CARONTE_APP_ID=my-app
+```
+
+**After (v3.0.0+)**
+
+```dotenv
+CARONTE_APP_CN=my-app
+```
+
+Update `.env`, `.env.example`, CI/CD secrets, and any deployment pipeline that sets `CARONTE_APP_ID`.
+
+---
+
+### Migration: Config Key Access
+
+No action needed if you access configuration **only** through the published `config/caronte.php` file (the keys are already updated). If your code reads config values directly:
+
+**Before**
+
+```php
+config('caronte.APP_ID')
+config('caronte.ISSUER_ID')
+```
+
+**After**
+
+```php
+config('caronte.app_cn')
+config('caronte.issuer_id')
+```
+
+---
+
+### Migration: Class Renames
+
+| Before (≤ v2.1.1)                         | After (v3.0.0+)                                  |
+| ----------------------------------------- | ------------------------------------------------ |
+| `Ometra\Caronte\CaronteToken`             | `Ometra\Caronte\CaronteUserToken`                |
+| `Ometra\Caronte\ServiceClient`            | `Ometra\Caronte\CaronteServiceClient`            |
+| `Ometra\Caronte\Support\ApplicationToken` | `Ometra\Caronte\Support\CaronteApplicationToken` |
+| `Ometra\Caronte\Api\CaronteHttpClient`    | `Ometra\Caronte\Support\CaronteHttpClient`       |
+
+Update all `use` statements and type hints accordingly.
+
+---
+
+### Migration: Middleware Renames
+
+| Before (≤ v2.1.1)                             | After (v3.0.0+)                                      |
+| --------------------------------------------- | ---------------------------------------------------- |
+| `Caronte.ValidateSession` / `ValidateSession` | `Caronte.ValidateUserToken` / `ValidateUserToken`    |
+| `Caronte.ValidateRoles` / `ValidateRoles`     | `Caronte.ValidateUserRoles` / `ValidateUserRoles`    |
+| `Caronte.ResolveApplicationToken`             | `Caronte.ResolveApplicationContext`                  |
+| `Caronte.ResolveTenantContext`                | _(removed; merged into `ResolveApplicationContext`)_ |
+
+In your `bootstrap/app.php` or `Kernel.php`:
+
+```php
+// Before
+->withMiddleware(function (Middleware $middleware) {
+    $middleware->alias([
+        'caronte.auth'    => \Ometra\Caronte\Http\Middleware\ValidateSession::class,
+        'caronte.roles'   => \Ometra\Caronte\Http\Middleware\ValidateRoles::class,
+        'caronte.app'     => \Ometra\Caronte\Http\Middleware\ResolveApplicationToken::class,
+        'caronte.tenant'  => \Ometra\Caronte\Http\Middleware\ResolveTenantContext::class,
+    ]);
+})
+
+// After
+->withMiddleware(function (Middleware $middleware) {
+    $middleware->alias([
+        'caronte.auth'  => \Ometra\Caronte\Http\Middleware\ValidateUserToken::class,
+        'caronte.roles' => \Ometra\Caronte\Http\Middleware\ValidateUserRoles::class,
+        'caronte.app'   => \Ometra\Caronte\Http\Middleware\ResolveApplicationContext::class,
+    ]);
+})
+```
+
+---
+
+### Migration: Removed Classes
+
+#### `CaronteRequest`
+
+**Before**
+
+```php
+use Ometra\Caronte\CaronteRequest;
+
+$response = CaronteRequest::post('/auth/login', $payload);
+```
+
+**After** — use `CaronteHttpClient` from `Support`:
+
+```php
+use Ometra\Caronte\Support\CaronteHttpClient;
+
+$client   = new CaronteHttpClient();
+$response = $client->post('/auth/login', $payload);
+```
+
+#### `CaronteRoleManager`
+
+**Before**
+
+```php
+use Ometra\Caronte\CaronteRoleManager;
+
+CaronteRoleManager::syncConfiguredRoles();
+```
+
+**After** — use `RoleApi` directly:
+
+```php
+use Ometra\Caronte\Api\RoleApi;
+
+(new RoleApi())->syncConfiguredRoles();
+```
+
+#### `BaseApiClient`
+
+**Before**
+
+```php
+use Ometra\Caronte\Api\BaseApiClient;
+
+class MyApi extends BaseApiClient { ... }
+```
+
+**After**
+
+```php
+use Ometra\Caronte\Api\CaronteApiClient;
+
+class MyApi extends CaronteApiClient { ... }
+```
+
+---
+
 ## v2.1.0
 
 ### What Changed
