@@ -1,173 +1,175 @@
-# Business Logic and Core Processes
-
-## Domain Concepts
-
-| Concept               | Definition                                                                                                   |
-| --------------------- | ------------------------------------------------------------------------------------------------------------ |
-| **User**              | An individual authenticated by the Caronte server. Identified by `uri_user` (opaque string, immutable PK).   |
-| **Tenant**            | Organizational partition. Stored as `id_tenant` in the JWT and in the local `Users` table.                   |
-| **Role**              | A named permission label (e.g. `admin`, `editor`). Defined in `config/caronte.php` and synced to the server. |
-| **Application Token** | A credential for server-to-server API calls. Format: `base64(sha1(app_cn) + ":" + app_secret)`.              |
-| **User Token (JWT)**  | A short-lived JWT issued by the Caronte server to an end user after successful authentication.               |
-| **Token Exchange**    | The act of trading an expired-but-valid JWT for a fresh one, without re-entering credentials.                |
-
-> **Critical distinction:** User tokens and application tokens are entirely different credentials used in different contexts.
+# Business Logic & Core Processes
 
 ---
 
-## Process 1: User Authentication (Password Login)
+## 1. Authentication Flow
 
-**Trigger:** User submits the login form (`POST /login`).
+### 1.1 Standard Login
 
-**Actors:** `AuthController` → `CaronteRequest` → `CaronteHttpClient` → Caronte Server → `Caronte` Facade → Session.
+1. User submits email + password to `POST /{prefix}/login` → `AuthController::login()`
+2. `AuthApi::login()` sends credentials to `POST /api/auth/login` on the Caronte server (with `X-Application-Token`).
+3. On success, the returned JWT is stored in the Laravel session under `config('caronte.session_key')`.
+4. The user is redirected to `config('caronte.success_url')`.
+5. On failure, the controller redirects back with an error in the validation bag.
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant AuthController
-    participant CaronteRequest
-    participant CaronteServer
-    participant Caronte
+### 1.2 Two-Factor Authentication
 
-    User->>AuthController: POST /login {email, password}
-    AuthController->>CaronteRequest: userPasswordLogin(email, password)
-    CaronteRequest->>CaronteServer: POST api/auth/login
-    CaronteServer-->>CaronteRequest: {token: "eyJ…"} | error
+Enabled when `config('caronte.use_2fa') = true`.
 
-    alt Success
-        CaronteRequest-->>AuthController: JWT string
-        AuthController->>Caronte: saveToken(jwt)
-        Caronte-->>Session: store caronte.user_token
-        AuthController-->>User: redirect to SUCCESS_URL
-    else Failure
-        CaronteRequest-->>AuthController: null / error data
-        AuthController-->>User: back with error message
-    end
+1. Login returns a `2fa_required` signal instead of a token.
+2. User is redirected to `GET /{prefix}/2fa`.
+3. `AuthApi::issueTwoFactor()` triggers the Caronte server to send a code (or the host app sends it if `notification_delivery = 'host'`).
+4. User submits code → `AuthApi::consumeTwoFactor()` → on success, stores JWT and redirects.
+
+### 1.3 Logout
+
+1. `POST /{prefix}/logout` → `AuthController::logout()`.
+2. Session key cleared; user redirected to `config('caronte.login_url')`.
+3. No call to the Caronte server (tokens are stateless JWTs; invalidation is time-based).
+
+### 1.4 Password Recovery
+
+1. User requests recovery → `AuthApi::requestPasswordRecovery(email)`.
+2. Caronte server (or host app if `notification_delivery = 'host'`) sends a recovery link.
+3. User clicks link with a `{token}` parameter.
+4. User submits new password → `AuthApi::consumePasswordRecovery(token, password)`.
+5. On success, redirect to login.
+
+---
+
+## 2. Token Validation & Renewal
+
+Handled by `ValidateUserToken` middleware on every protected request.
+
+### Decision tree
+
+```
+Request arrives
+└─ Caronte::getToken() reads session JWT
+   ├─ No token → redirect to login
+   └─ Token present
+      └─ CaronteUserToken::validateToken(token)
+         ├─ Signature invalid → redirect to login
+         ├─ Issuer mismatch (if enforce_issuer=true) → redirect
+         ├─ Wrong application claim → 403
+         ├─ Not-before violation → redirect
+         ├─ Valid & not expired → proceed ✓
+         └─ Expired
+            └─ AuthApi::exchange(token)
+               ├─ Exchange fails → redirect to login
+               └─ New token returned
+                  └─ Update session
+                     └─ If JSON request: set X-User-Token header
+                     └─ Proceed ✓
 ```
 
-**Key class:** `src/CaronteRequest.php` — `userPasswordLogin()`.
+### JWT claims validated
+
+| Claim | Description |
+|---|---|
+| Signature | Verified with the shared key (`caronte.app_secret`, min 32 chars) |
+| Issuer (`iss`) | Must match `config('caronte.issuer_id')` when `enforce_issuer = true` |
+| Application (`app`) | SHA1 of `app_cn` must match token's application claim |
+| Not-Before (`nbf`) | Token not valid before this timestamp |
+| Expiration (`exp`) | Token is expired if current time > `exp` |
 
 ---
 
-## Process 2: Per-Request JWT Validation and Automatic Token Exchange
+## 3. Role-Based Access Control
 
-**Trigger:** Any request passing through the `caronte.session` middleware.
+### 3.1 Role configuration
 
-**Actors:** `ValidateUserToken` → `Caronte` Facade → `CaronteToken`.
-
-```mermaid
-sequenceDiagram
-    participant Browser
-    participant ValidateUserToken
-    participant Caronte
-    participant CaronteToken
-    participant CaronteServer
-
-    Browser->>ValidateUserToken: HTTP request
-    ValidateUserToken->>Caronte: getToken()
-    Caronte-->>ValidateUserToken: jwt | null
-
-    alt No token
-        ValidateUserToken-->>Browser: redirect /login
-    else Token present
-        ValidateUserToken->>CaronteToken: validateToken(jwt)
-        CaronteToken->>CaronteToken: parseAndVerifySignature()
-
-        alt Valid & not expired
-            CaronteToken-->>ValidateUserToken: true
-            ValidateUserToken->>ValidateUserToken: hasApplication() check
-            ValidateUserToken-->>Browser: next middleware
-        else Expired
-            CaronteToken->>CaronteServer: POST api/auth/exchange
-            CaronteServer-->>CaronteToken: new JWT
-            CaronteToken->>Caronte: saveToken(newJwt)
-            CaronteToken-->>ValidateUserToken: true
-            ValidateUserToken-->>Browser: next + X-User-Token header
-        else Invalid signature / issuer
-            CaronteToken-->>ValidateUserToken: false
-            ValidateUserToken-->>Browser: redirect /login (or 401)
-        end
-    end
-```
-
-**Key classes:** `src/Http/Middleware/ValidateUserToken.php`, `src/CaronteToken.php`.
-
-**Guard against loops:** `CaronteToken::$exchanging` (static boolean) prevents re-entrant exchange calls.
-
----
-
-## Process 3: Role-Based Access Control
-
-**Trigger:** Any request passing through the `caronte.roles:{roles}` middleware, or a direct call to `PermissionHelper::hasRoles()`.
-
-**Rule:** The `root` role is **always** implicitly accepted regardless of the configured role list. This is enforced in `PermissionHelper::hasRoles()` (`src/Helpers/PermissionHelper.php`):
+Define roles in `config/caronte.php`:
 
 ```php
-// root always passes
-if (in_array('root', $userRoles, true)) {
-    return true;
-}
+'roles' => [
+    'admin'  => 'Administrator',
+    'editor' => 'Content editor',
+],
 ```
 
-**Special token:** A `_self` application token may be used in server-to-server flows to bypass role checks (see `PermissionHelper::hasApplication()`).
+`ConfiguredRoles::all()` reads this map and appends a `uri_applicationRole` (SHA1) to each entry.
 
-**Roles source:** Roles in the JWT are decoded by `CaronteToken::decodeToken()` and read from the `roles` claim.
+### 3.2 Middleware check
 
----
+`ValidateUserRoles` calls `PermissionHelper::hasRoles($requiredRoles)`.
 
-## Process 4: Two-Factor Authentication (Optional)
+- The `root` role is **always** appended to the required list — any user with `root` passes any role check.
+- Roles are compared against the `roles` claim in the user's JWT.
+- Users matched via `_self` can access their own resources regardless of role.
 
-**Enabled by:** `CARONTE_2FA=true`.
+### 3.3 Application access check
 
-**Flow:**
-
-1. User submits login form → server redirects to 2FA email-request page.
-2. User enters their email → `AuthController@twoFactorTokenRequest` → `CaronteRequest::twoFactorTokenRequest()` → Caronte server sends a one-time code to the user's email.
-3. User enters the one-time code → `AuthController@twoFactorTokenLogin` → `CaronteRequest::twoFactorTokenLogin()` → Caronte server returns JWT.
-
-**Delivery modes** (controlled by `CARONTE_NOTIFICATION_DELIVERY`):
-
-| Mode     | Who sends the email                                                                             |
-| -------- | ----------------------------------------------------------------------------------------------- |
-| `server` | Caronte server sends the email directly (default)                                               |
-| `host`   | The host app sends the email via the configured notification sender classes |
-
-**Key classes:** `src/Http/Controllers/AuthController.php`, `src/CaronteRequest.php`, `src/Notifications/TwoFactorChallengeSender.php`, `src/Notifications/PasswordRecoverySender.php`.
+`PermissionHelper::hasApplication()` verifies the user's JWT contains a role scoped to this application's `app_id` (SHA1 of `app_cn`). This prevents tokens issued by one Caronte-connected app from being used on another.
 
 ---
 
-## Process 5: Role Synchronization
+## 4. Role Synchronisation
 
-**Trigger:** `php artisan caronte:roles:sync` or `RoleController@sync` (Management UI).
+The `caronte:roles:sync` command and the management UI's sync button both call `RoleApi::syncRoles()`:
 
-**Flow:**
+1. `ConfiguredRoles::all()` builds the normalised role list from config.
+2. A `PUT /api/applications/roles` request sends the full list to the Caronte server.
+3. The server overwrites the application's registered roles.
+4. Any roles previously registered but no longer in config will be removed.
 
-1. `CaronteRoleManager::getConfiguredRoles()` reads `config('caronte.roles')` via `ConfiguredRoles::all()`.
-   - `root` is always injected by `ConfiguredRoles` even if not listed in config.
-2. `CaronteRoleManager::getRemoteRoles()` calls `RoleApi::showRoles()` → Caronte server.
-3. A diff is computed: roles in config but not on server are created; descriptions that differ are updated.
-4. `CaronteRoleManager::syncConfiguredRoles()` calls `RoleApi::syncRoles()` → `PUT api/applications/roles`.
-
-**Dry run:** `--dry-run` flag stops after step 3 and prints the diff without calling step 4.
-
-**Key classes:** `src/CaronteRoleManager.php`, `src/Support/ConfiguredRoles.php`, `src/Api/RoleApi.php`.
+> This is a full replacement, not a merge. Always include all desired roles in `config/caronte.php`.
 
 ---
 
-## Process 6: Local User Mirror (Optional)
+## 5. Application Token (Server-to-Server)
 
-**Enabled by:** `CARONTE_UPDATE_LOCAL_USER=true`.
+Used when one Caronte-protected service calls another.
 
-**Purpose:** Maintains a local replica of user data for reporting, relationships, or offline queries without hitting the Caronte server.
+**Token generation:**
 
-**Trigger:** `Caronte::updateUserData()` is called during session validation in `ValidateUserToken`.
+```
+app_id    = sha1( strtolower( trim( app_cn ) ) )
+app_token = base64_encode( app_id . ':' . app_secret )
+```
 
-**Flow:**
+Generated by `CaronteApplicationToken::make()`.
 
-1. JWT is decoded → user claims extracted.
-2. `CaronteUser::updateOrCreate(['uri_user' => …], ['name' => …, 'email' => …, 'id_tenant' => …])`.
-3. If metadata claims are present in the JWT, `CaronteUserMetadata` records are upserted.
+**Validation** (in `ResolveApplicationContext` middleware):
 
-**Tables:** `{prefix}Users`, `{prefix}UsersMetadata` (prefix configured via `CARONTE_TABLE_PREFIX`).
+1. Extract `X-Application-Token` header.
+2. Decode base64 → split on `:`.
+3. Compare app_id against `CaronteApplicationToken::appId()` using `hash_equals` (constant-time).
+4. On match: bind `CaronteApplicationContext` to the IoC container.
+5. Optionally resolve `X-Tenant-Id` header (required if middleware argument is `tenant_required`).
 
-**Key classes:** `src/Caronte.php` (`updateUserData()`), `src/Models/CaronteUser.php`, `src/Models/CaronteUserMetadata.php`.
+---
+
+## 6. Notification Delivery
+
+Controlled by `config('caronte.notification_delivery')`:
+
+| Value | Behaviour |
+|---|---|
+| `server` | Caronte server sends all emails (2FA codes, recovery links) — no host app involvement |
+| `host` | Host app sends emails via the bound `SendsTwoFactorChallenge` / `SendsPasswordRecovery` implementations |
+
+The host contracts both define:
+
+```php
+public function send(string $email, string $actionUrl, ?string $expiresAt = null): void;
+```
+
+---
+
+## 7. Local User Synchronisation
+
+When `config('caronte.update_local_user') = true`, on successful login the `CaronteUser` model is created or updated in the host database with data returned by the Caronte server. This allows host-app queries against local user data without hitting the auth server on every request.
+
+The local user record is **read-only from the Caronte perspective** — all mutations go through the Caronte API.
+
+---
+
+## 8. Management UI
+
+Enabled when `caronte.management.enabled = true`.
+
+- **Dashboard**: Lists users and allows role management.
+- **Inertia mode**: Set `management.use_inertia = true` to render Vue pages; otherwise Blade views are used.
+- **Access control**: Only users with roles listed in `management.access_roles` (plus `root`) can access management routes.
+- **Features**: `metadata` and `profile_pictures` sub-features are gated by `management.features.*` flags.

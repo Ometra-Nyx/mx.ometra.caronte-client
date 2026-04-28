@@ -1,119 +1,79 @@
-# Open Questions and Assumptions
-
-This document tracks design decisions whose rationale was not explicitly documented in the codebase, along with questions that should be answered before the package is considered fully production-ready.
+# Open Questions & Assumptions
 
 ---
 
-## Deployment
+## Open Questions
 
-### 1. Laravel version support discrepancy
+### OQ-1: Token invalidation on logout
 
-The `copilot-instructions.md` internal documentation states `Laravel ^10.0 || ^11.0 || ^12.0`, but `composer.json` declares `laravel/framework: ^12.0`. This means the package **does not** support Laravel 10 or 11 today, despite references to broader support in developer notes.
+**Question:** Should the client notify the Caronte server on logout to invalidate the JWT server-side?
 
-**Action required:** Confirm and align the supported range in `composer.json`, `README.md`, and all internal documentation.
+**Current state:** `AuthController::logout()` only clears the local session. No call is made to the Caronte server. JWTs expire naturally.
 
----
-
-### 2. No queue workers or scheduler required
-
-The package makes no use of Laravel queues or the task scheduler. This is an explicit design assumption. All Caronte server communication is **synchronous** within the request lifecycle.
-
-**Implication:** If network latency to the Caronte server increases significantly, per-request token validation may cause measurable slowdowns. No retry/circuit-breaker pattern exists beyond `CARONTE_HTTP_RETRIES`.
+**Impact:** A logged-out user can still use a captured token until it expires. If short expiry is enforced on the server this is acceptable; if not, a server-side revocation endpoint should be added.
 
 ---
 
-### 3. RDBMS compatibility
+### OQ-2: Multi-tenancy behaviour under the default resolver
 
-Migrations use InnoDB engine hints but no RDBMS-specific column types that would block SQLite or PostgreSQL. Oracle and SQL Server have not been tested.
+**Question:** The `TenantContextResolver` exists in `src/Tenancy/Resolvers/`. What is the full contract between this resolver and `equidna/bee-hive`?
 
-**Assumption:** The package is expected to work with MySQL, MariaDB, PostgreSQL, and SQLite (for testing). Other engines are out of scope.
+**Current state:** The resolver is registered but its interaction with `BelongsToTenant` on `CaronteUser` under different tenant modes is not fully documented.
 
----
-
-## API / Integration
-
-### 4. Caronte server API contract is external
-
-The package makes outbound HTTP calls to a Caronte server whose API spec is not included in this repository. The endpoint paths, response shapes, and authentication format (`X-Application-Token`) are hardcoded in `src/Api/CaronteHttpClient.php` and `src/Api/ClientApi.php`.
-
-**Assumption:** The Caronte server API is stable and under the same team's control. Any breaking API changes on the server side will require a coordinated package update.
+**Impact:** Deploying in a multi-tenant environment without understanding the resolver behaviour may cause cross-tenant data leaks.
 
 ---
 
-### 5. Management UI metadata operations parity with Inertia
+### OQ-3: Management UI Inertia vs. Blade parity
 
-The Management UI supports metadata CRUD (`UserController@storeMetadata`, `UserController@deleteMetadata`). It is unclear whether corresponding Inertia page components exist for these operations or whether they are Blade-only.
+**Question:** Are all management features available in both Inertia (Vue) and Blade rendering modes?
 
-**Action required:** Verify Inertia pages under `resources/js/Pages/` cover metadata operations, or document the gap.
+**Current state:** Both modes exist but test coverage focuses on the Blade path. The Inertia page components in `resources/js/Pages/` are not covered by the PHPUnit suite.
 
----
-
-### 6. `equidna/bee-hive` stability
-
-The multi-tenancy integration relies on `equidna/bee-hive ^1.0`. This package is an internal dependency and its stability guarantee (semver compliance, long-term support) is not documented here.
-
-**Assumption:** `bee-hive` is maintained alongside this package and breaking changes will be coordinated.
+**Impact:** A host app that enables `management.use_inertia = true` may encounter untested code paths.
 
 ---
 
-## Business Logic
+### OQ-4: Caronte server contract versioning
 
-### 7. `uri_user` immutability
+**Question:** Is there a version contract between this package and the Caronte server API?
 
-`uri_user` is the primary key of `CaronteUser` and is treated as immutable. The `UpdateUser` command only supports updating `name`, not `uri_user`. If the Caronte server ever changes a user's `uri_user`, the local mirror will become inconsistent.
+**Current state:** All API paths (e.g. `/api/auth/login`) are hardcoded in `AuthApi`, `ClientApi`, `RoleApi`. No version prefix is used.
 
-**Assumption:** The Caronte server guarantees `uri_user` is immutable once assigned.
-
----
-
-### 8. `_self` application token is undocumented
-
-`PermissionHelper::hasApplication()` accepts a special `_self` token value that bypasses application-token validation (`src/Helpers/PermissionHelper.php`). This mechanism is not explained in any documentation.
-
-**Action required:** Document when and why `_self` should be used; add a guard to ensure it is never used in production contexts unless explicitly enabled.
+**Impact:** A breaking change in the Caronte server API requires a package update.
 
 ---
 
-### 9. `ConfiguredRoles::normalizeEntry()` accepted formats
+### OQ-5: `CaronteUserHelper` role
 
-`ConfiguredRoles` processes `config('caronte.roles')` which can be formatted as either:
+**Question:** `src/Helpers/CaronteUserHelper.php` exists but is not documented in the inline comments. What does it provide beyond `PermissionHelper`?
 
-```php
-// Option A: associative (name => description)
-'roles' => ['admin' => 'Administrative access']
-
-// Option B: indexed list
-'roles' => ['admin', 'editor']
-```
-
-The exact normalization logic is not documented. Mixing both formats in the same array has undefined behavior.
-
-**Action required:** Document the canonical format and add a validation step in the service provider boot.
+**Current state:** Unknown without reading the file in depth.
 
 ---
 
-## Monitoring
+## Assumptions
 
-### 10. No structured logging planned
+### A-1: Caronte server availability
 
-The package uses `Log::info/warning/error()` with unstructured string messages. There is no structured (JSON) logging, no request correlation IDs, and no log context is injected automatically.
+The package assumes the Caronte server is always reachable. There is no circuit-breaker or graceful degradation beyond HTTP retries. If the server is down, all protected routes will fail to exchange tokens.
 
-**Implication:** Log aggregation and filtering in production requires pattern-matching on message strings.
+### A-2: JWT key strength
 
----
+The minimum key length of 32 characters for `app_secret` is enforced by `CaronteUserToken::MINIMUM_KEY_LENGTH`. It is assumed the host application enforces this via the deployment checklist.
 
-## Tests
+### A-3: Single Caronte server per host application
 
-### 11. No unit tests for core classes
+The package reads a single `CARONTE_URL`. Multi-server or HA setups must be handled at the infrastructure level (e.g. load balancer in front of multiple Caronte instances).
 
-`CaronteToken`, `CaronteRoleManager`, `PermissionHelper`, `ApplicationToken`, and `ConfiguredRoles` are tested only indirectly through Feature tests. Edge cases in JWT parsing and permission logic may be uncovered.
+### A-4: `root` role is always trusted
 
-**Action required:** Add dedicated unit tests for `CaronteToken::validateToken()` edge cases (clock skew, wrong issuer, tampered payload) and `PermissionHelper::hasRoles()`.
+The `root` role bypasses all role checks. It is assumed the Caronte server only grants `root` to fully trusted administrators.
 
----
+### A-5: Table prefix set before first migration
 
-### 12. Mail and notification senders are untested
+If `caronte.table_prefix` is changed after the initial migration, the tables must be renamed manually. The package does not provide a migration for prefix changes.
 
-`PasswordRecoverySender` and `TwoFactorChallengeSender` (under `src/Notifications/`) are the default host-delivery implementations. Custom senders can be configured through `caronte.notifications.password_recovery_sender` and `caronte.notifications.two_factor_sender`.
+### A-6: Notification delivery mode is consistent
 
-**Action required:** Add feature tests using `Mail::fake()` or `Notification::fake()` to verify email dispatch when the host delivery mode is active.
+It is assumed `notification_delivery` does not change after the initial deployment. Switching from `server` to `host` mid-deployment without configuring the Mailable senders will break 2FA and password recovery.

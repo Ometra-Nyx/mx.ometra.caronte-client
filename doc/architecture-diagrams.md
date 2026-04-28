@@ -1,52 +1,41 @@
 # Architecture Diagrams
 
-## 1. System Context (C4 Level 1)
+---
+
+## 1. System Context
 
 ```mermaid
 C4Context
-    title System Context — Caronte Client Package
+    title System Context — Caronte Authentication
 
-    Person(endUser, "End User", "Authenticates via browser")
-    Person(developer, "Developer / Admin", "Manages users and roles via CLI or Management UI")
+    Person(user, "End User", "Browser or API client")
+    System(hostApp, "Host Application", "Laravel app using ometra/caronte-client")
+    System_Ext(caronte, "Caronte Server", "Central authentication & role server")
+    SystemDb(db, "Host DB", "Stores local user cache (CaronteUser)")
 
-    System(hostApp, "Host Laravel Application", "Any Laravel app that includes ometra/caronte-client")
-    System_Ext(caronteServer, "Caronte Server", "Central authentication authority; issues and validates JWTs")
-    SystemDb(localDb, "Local Database", "Optional mirror of user data (CaronteUser / CaronteUserMetadata)")
-    System_Ext(mailService, "Mail Service", "Delivers 2FA codes and password-recovery emails")
-
-    Rel(endUser, hostApp, "Authenticates, requests pages")
-    Rel(developer, hostApp, "Manages users/roles via Management UI or Artisan CLI")
-    Rel(hostApp, caronteServer, "Validates/exchanges JWTs; syncs roles; manages users", "HTTPS + X-Application-Token")
-    Rel(hostApp, localDb, "Reads/writes user mirror (optional)")
-    Rel(hostApp, mailService, "Sends 2FA and recovery emails (when delivery=host)")
-    Rel(caronteServer, mailService, "Sends 2FA and recovery emails (when delivery=server)")
+    Rel(user, hostApp, "HTTP requests")
+    Rel(hostApp, caronte, "JWT exchange / user & role management", "HTTPS")
+    Rel(hostApp, db, "Read/write local user cache", "Eloquent")
 ```
 
 ---
 
-## 2. Container Diagram (C4 Level 2)
+## 2. Container Diagram
 
 ```mermaid
-flowchart TD
-    Browser["Browser (End User)"]
-    CLI["Developer CLI"]
+C4Container
+    title Container — Host Application with Caronte Client
 
-    subgraph Host["Host Laravel Application"]
-        WebLayer["Web Layer\n(Routes + Middleware)"]
-        Package["caronte-client Package\n(Controllers, Commands, Core)"]
-    end
+    Container(web, "Web Layer", "Laravel Router + Middleware", "Handles HTTP, applies caronte.session / caronte.roles middleware")
+    Container(pkg, "caronte-client package", "PHP library", "Auth flow, token validation, role management, management UI")
+    Container(apiClients, "API Clients", "CaronteApiClient / CaronteServiceClient", "Outgoing HTTP to Caronte server")
+    Container(db, "Local DB", "MySQL", "CaronteUser / CaronteUserMetadata tables")
+    System_Ext(caronte, "Caronte Server", "Issues and validates JWTs, stores canonical roles & users")
 
-    DB["Local Database\n(Users / UsersMetadata)"]
-    CaronteServer["Caronte Server\n(Auth Authority)"]
-    Mail["Mail Service"]
-
-    Browser -- "HTTP / HTTPS" --> WebLayer
-    CLI -- "php artisan caronte:*" --> Package
-    WebLayer --> Package
-    Package -- "PDO (optional)" --> DB
-    Package -- "HTTPS + X-Application-Token" --> CaronteServer
-    Package -- "SMTP / Mailable (optional)" --> Mail
-    CaronteServer -- "JWT in response" --> Package
+    Rel(web, pkg, "Middleware, Controller, Facade calls")
+    Rel(pkg, apiClients, "Delegates server calls")
+    Rel(apiClients, caronte, "REST over HTTPS")
+    Rel(pkg, db, "Eloquent ORM")
 ```
 
 ---
@@ -54,137 +43,145 @@ flowchart TD
 ## 3. Component Diagram
 
 ```mermaid
-flowchart LR
+graph TD
     subgraph Middleware
-        VS[ValidateUserToken]
-        VR[ValidateUserRoles]
-        RAT[ResolveApplicationContext]
+        A[caronte.session<br/>ValidateUserToken]
+        B[caronte.roles<br/>ValidateUserRoles]
+        C[caronte.application<br/>ResolveApplicationContext]
     end
 
     subgraph Controllers
-        Auth[AuthController]
-        Mgmt[ManagementController]
-        User[UserController]
-        Role[RoleController]
+        D[AuthController<br/>login / logout / 2FA / recovery]
+        E[ManagementController<br/>dashboard / sync]
+        F[UserController<br/>CRUD]
+        G[RoleController<br/>sync]
     end
 
-    subgraph Core
-        Facade[Caronte Facade]
-        Token[CaronteToken]
-        Req[CaronteRequest]
-        RM[CaronteRoleManager]
+    subgraph Facade & Core
+        H[Caronte facade<br/>getToken / checkToken / getUser]
+        I[CaronteUserToken<br/>validateToken / exchange]
+        J[PermissionHelper<br/>hasRoles / hasApplication]
     end
 
-    subgraph ApiClients
-        HTTP[CaronteHttpClient]
-        ClientApi[ClientApi]
-        RoleApi[RoleApi]
+    subgraph API Layer
+        K[AuthApi]
+        L[ClientApi]
+        M[RoleApi]
+        N[CaronteApiClient<br/>extends CaronteHttpClient]
     end
 
     subgraph Support
-        AppToken[ApplicationToken]
-        ConfigRoles[ConfiguredRoles]
-        RouteHelper[Equidna RouteHelper]
-        TenantContext[BeeHive TenantContext]
-        PH[PermissionHelper]
+        O[CaronteApplicationToken<br/>make / matches]
+        P[CaronteHttpClient<br/>request / parseResponse]
+        Q[ConfiguredRoles<br/>all / names / accessRoles]
+        R[CaronteServiceClient<br/>inter-service calls]
     end
 
-    subgraph Models
-        CUser[CaronteUser]
-        CMeta[CaronteUserMetadata]
-    end
-
-    VS --> Facade
-    VS --> Token
-    VS --> PH
-    VR --> PH
-    RAT --> AppToken
-    RTC --> TCR
-
-    Auth --> Req
-    Auth --> Facade
-    Mgmt --> ClientApi
-    User --> ClientApi
-    Role --> RM
-
-    Facade --> Token
-    Req --> HTTP
-    RM --> RoleApi
-    RM --> ConfigRoles
-    RM --> AppToken
-
-    HTTP --> ClientApi
-    HTTP --> RoleApi
-
-    Token --> HTTP
-
-    Facade --> CUser
-    Facade --> CMeta
+    A --> H
+    A --> I
+    B --> J
+    C --> O
+    D --> K
+    D --> I
+    E --> L
+    F --> L
+    G --> M
+    K --> N
+    L --> N
+    M --> N
+    N --> P
+    R --> P
+    H --> I
 ```
 
 ---
 
-## 4. Per-Request JWT Validation Sequence
+## 4. Authentication Flow Sequence
 
 ```mermaid
 sequenceDiagram
-    participant Browser
-    participant ValidateUserToken
-    participant Caronte as Caronte (Facade)
-    participant CaronteToken
-    participant Session
-    participant CaronteServer
+    participant U as User (Browser)
+    participant H as Host App
+    participant C as Caronte Server
 
-    Browser->>ValidateUserToken: HTTP request
-    ValidateUserToken->>Caronte: getToken()
-    Caronte->>Session: read caronte.user_token
-    Session-->>Caronte: JWT string (or null)
-    Caronte-->>ValidateUserToken: JWT string
+    U->>H: POST /caronte/login (email, password)
+    H->>C: POST /api/auth/login (app token header)
+    C-->>H: { data: { token: <JWT> } }
+    H->>H: Store JWT in session
+    H-->>U: Redirect to success_url
 
-    ValidateUserToken->>CaronteToken: validateToken(jwt)
-    CaronteToken->>CaronteToken: assertSignatureAndIssuer()
+    Note over H,C: Subsequent requests
 
-    alt Token is valid
-        CaronteToken-->>ValidateUserToken: true
-        ValidateUserToken->>ValidateUserToken: checkApplicationAccess()
-        ValidateUserToken-->>Browser: pass through to controller
-    else Token is expired
-        CaronteToken->>CaronteToken: exchangeToken(jwt)
-        CaronteToken->>CaronteServer: POST api/auth/exchange
-        CaronteServer-->>CaronteToken: new JWT
-        CaronteToken->>Caronte: saveToken(newJwt)
-        Caronte->>Session: store new token
-        CaronteToken-->>ValidateUserToken: true (with X-User-Token header set)
-        ValidateUserToken-->>Browser: pass through + X-User-Token response header
-    else Token invalid / missing
-        CaronteToken-->>ValidateUserToken: false
-        ValidateUserToken-->>Browser: redirect to /login (or 401 for API)
+    U->>H: GET /protected-route (session cookie)
+    H->>H: ValidateUserToken middleware
+    H->>H: CaronteUserToken::validateToken(JWT)
+    alt Token valid & not expired
+        H-->>U: 200 OK
+    else Token expired
+        H->>C: POST /api/auth/exchange (old JWT)
+        C-->>H: { data: { token: <new JWT> } }
+        H->>H: Update session
+        H-->>U: 200 OK + X-User-Token header
+    else Token invalid
+        H-->>U: Redirect to login
     end
 ```
 
 ---
 
-## 5. User Authentication Sequence
+## 5. Application Token Flow
 
 ```mermaid
 sequenceDiagram
-    participant Browser
-    participant AuthController
-    participant CaronteRequest
-    participant CaronteHttpClient
-    participant CaronteServer
-    participant Caronte as Caronte (Facade)
-    participant Session
+    participant S as Service A (caller)
+    participant T as Service B (target)
 
-    Browser->>AuthController: POST /login {email, password}
-    AuthController->>CaronteRequest: userPasswordLogin(email, password)
-    CaronteRequest->>CaronteHttpClient: authRequest(POST, api/auth/login, …)
-    CaronteHttpClient->>CaronteServer: POST api/auth/login
-    CaronteServer-->>CaronteHttpClient: {status: 200, data: {token: "eyJ…"}}
-    CaronteHttpClient-->>CaronteRequest: response array
-    CaronteRequest-->>AuthController: JWT string
+    S->>S: CaronteApplicationToken::make()
+    Note right of S: base64( sha1(app_cn) : app_secret )
+    S->>T: HTTP request + X-Application-Token header
+    T->>T: ResolveApplicationContext middleware
+    T->>T: CaronteApplicationToken::matches(token)
+    alt Valid
+        T->>T: Bind CaronteApplicationContext to IoC
+        T-->>S: 200 OK
+    else Invalid
+        T-->>S: 401 Unauthorized
+    end
+```
 
-    AuthController->>Caronte: saveToken(jwt)
-    Caronte->>Session: store caronte.user_token = jwt
-    AuthController-->>Browser: redirect to SUCCESS_URL
+---
+
+## 6. Package Directory Structure
+
+```
+src/
+├── Caronte.php                  # Main facade class (user token management)
+├── CaronteServiceClient.php     # Inter-service HTTP client (public API)
+├── CaronteUserToken.php         # JWT parse/validate/exchange
+├── Api/
+│   ├── AuthApi.php              # Static proxy — auth endpoints
+│   ├── CaronteApiClient.php     # HTTP client for Caronte server
+│   ├── ClientApi.php            # Static proxy — user endpoints
+│   └── RoleApi.php              # Static proxy — role endpoints
+├── Console/Commands/            # Artisan commands
+├── Contracts/                   # SendsTwoFactorChallenge, SendsPasswordRecovery
+├── Facades/                     # Caronte facade alias
+├── Helpers/
+│   ├── CaronteUserHelper.php
+│   └── PermissionHelper.php
+├── Http/
+│   ├── Controllers/             # Auth, Management, User, Role controllers
+│   └── Middleware/              # ValidateUserToken, ValidateUserRoles, ResolveApplicationContext
+├── Mail/                        # Mailable classes for host-delivery mode
+├── Models/                      # CaronteUser, CaronteUserMetadata
+├── Notifications/               # Default sender implementations
+├── Providers/
+│   └── CaronteServiceProvider.php
+└── Support/
+    ├── CaronteApplicationContext.php  # DTO bound by ResolveApplicationContext
+    ├── CaronteApplicationToken.php    # App token generation & validation
+    ├── CaronteHttpClient.php          # Abstract HTTP base (template method)
+    ├── CaronteResponse.php            # Normalised response DTO
+    ├── ConfiguredRoles.php            # Reads config('caronte.roles')
+    └── RequestContext.php
 ```
