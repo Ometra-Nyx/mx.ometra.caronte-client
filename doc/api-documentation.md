@@ -17,7 +17,7 @@ The package calls the following Caronte server endpoints. These are documented f
 All requests include an `X-Application-Token` header computed as:
 
 ```
-base64( sha1(APP_ID) + ":" + APP_SECRET )
+base64( sha1(app_cn) + ":" + app_secret )
 ```
 
 ### Authentication Endpoints
@@ -76,21 +76,19 @@ All methods in `Ometra\Caronte\Api\ClientApi` (`src/Api/ClientApi.php`) and `Ome
 
 The package also exposes middleware for routes in the **host application** that need to accept calls from the Caronte server or other trusted services:
 
-- `caronte.application` → `Ometra\Caronte\Http\Middleware\ResolveApplicationToken` (`src/Http/Middleware/ResolveApplicationToken.php`)
+- `caronte.application` → `Ometra\Caronte\Http\Middleware\ResolveApplicationContext` (`src/Http/Middleware/ResolveApplicationContext.php`)
   - Expects `X-Application-Token` header.
-  - Validates the token against the configured `APP_ID` + `APP_SECRET`.
+  - Validates the token against the configured `app_cn` + `app_secret`.
   - On success, binds a `CaronteApplicationContext` instance into the service container.
-- `caronte.tenant` → `Ometra\Caronte\Http\Middleware\ResolveTenantContext` (`src/Http/Middleware/ResolveTenantContext.php`)
-  - Must follow `caronte.application`.
-  - Expects `X-Tenant-Id` header.
-  - Stores the tenant in `equidna/bee-hive`'s `TenantContext` and on the request attributes.
+  - If `X-Tenant-Id` is present, stores it in `equidna/bee-hive`'s `TenantContext`.
+  - Use `caronte.application:tenant_required` when the route must reject requests without tenant context.
 
 ### Example: Protecting an inbound server-to-server route
 
 ```php
-Route::middleware(['caronte.application', 'caronte.tenant'])
-    ->get('/internal/data', function (Request $request) {
-        $tenantId = $request->attributes->get('tenant_id');
+Route::middleware(['caronte.application:tenant_required'])
+    ->get('/internal/data', function () {
+        $tenantId = app(\Equidna\BeeHive\Tenancy\TenantContext::class)->get();
         // ...
     });
 ```

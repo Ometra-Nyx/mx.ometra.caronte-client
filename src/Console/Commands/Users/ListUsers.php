@@ -4,11 +4,11 @@ namespace Ometra\Caronte\Console\Commands\Users;
 
 use Illuminate\Console\Command;
 use Ometra\Caronte\Api\ClientApi;
-use Ometra\Caronte\Console\Concerns\GuardsManagement;
+use Ometra\Caronte\Console\Concerns\BindsTenantContext;
 
 class ListUsers extends Command
 {
-    use GuardsManagement;
+    use BindsTenantContext;
 
     protected $signature = 'caronte:users:list
         {--tenant= : Tenant identifier required for user-scoped Caronte endpoints}
@@ -19,15 +19,12 @@ class ListUsers extends Command
 
     public function handle(): int
     {
-        if (!$this->ensureManagementEnabled()) {
-            return self::FAILURE;
-        }
-
         try {
+            $this->bindTenantContextFromOption();
+
             $response = ClientApi::showUsers(
                 search: (string) $this->option('search'),
-                usersApp: !$this->option('all'),
-                tenantId: $this->resolveTenant()
+                usersApp: !$this->option('all')
             );
 
             $users = is_array($response['data']) ? $response['data'] : [];
@@ -53,20 +50,5 @@ class ListUsers extends Command
 
             return self::FAILURE;
         }
-    }
-
-    private function resolveTenant(): string
-    {
-        $tenant = trim((string) $this->option('tenant'));
-
-        if ($tenant === '') {
-            $tenant = trim((string) $this->ask('Tenant identifier'));
-        }
-
-        if ($tenant === '') {
-            throw new \RuntimeException('The --tenant option is required for user management commands.');
-        }
-
-        return $tenant;
     }
 }

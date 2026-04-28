@@ -16,8 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `CARONTE_TLS_VERIFY` configuration option: TLS certificate verification can now be toggled independently from `CARONTE_ALLOW_HTTP_REQUESTS`.
-- `caronte.application` middleware alias (`ResolveApplicationToken`): validates `X-Application-Token` header for server-to-server routes and binds `CaronteApplicationContext`.
-- `caronte.tenant` middleware alias (`ResolveTenantContext`): resolves tenant from `X-Tenant-Id` header (or JWT claim fallback) and sets `equidna/bee-hive` `TenantContext`.
+- `caronte.application` middleware alias (`ResolveApplicationContext`): validates `X-Application-Token` header for server-to-server routes, binds `CaronteApplicationContext`, and supports `tenant_required` mode.
 - `CaronteHttpClient` — dedicated HTTP client wrapping auth and application requests with proper headers.
 - `ApplicationToken` support class for generating and matching application tokens (`base64(sha1(APP_ID) + ":" + APP_SECRET)`).
 - `CaronteResponse` support class standardising the API response envelope shape.

@@ -4,12 +4,12 @@ namespace Ometra\Caronte\Console\Commands\Users;
 
 use Illuminate\Console\Command;
 use Ometra\Caronte\Api\ClientApi;
-use Ometra\Caronte\Console\Concerns\GuardsManagement;
+use Ometra\Caronte\Console\Concerns\BindsTenantContext;
 use Ometra\Caronte\Support\ConfiguredRoles;
 
 class CreateUser extends Command
 {
-    use GuardsManagement;
+    use BindsTenantContext;
 
     protected $signature = 'caronte:users:create
         {--tenant= : Tenant identifier required for user-scoped Caronte endpoints}
@@ -22,10 +22,6 @@ class CreateUser extends Command
 
     public function handle(): int
     {
-        if (!$this->ensureManagementEnabled()) {
-            return self::FAILURE;
-        }
-
         $name = trim((string) ($this->option('name') ?: $this->ask('User name')));
         $email = trim((string) ($this->option('email') ?: $this->ask('User email')));
         $password = (string) ($this->option('password') ?: $this->secret('Initial password'));
@@ -44,19 +40,20 @@ class CreateUser extends Command
         }
 
         try {
-            $tenant = $this->resolveTenant();
+            $this->bindTenantContextFromOption();
+
             $response = ClientApi::createUser([
                 'name' => $name,
                 'email' => $email,
                 'password' => $password,
                 'password_confirmation' => $passwordConfirmation,
-            ], $tenant);
+            ]);
 
             $user = $response['data']['user'] ?? null;
             $roles = $this->resolveRoleUris();
 
             if (is_array($user) && isset($user['uri_user'])) {
-                ClientApi::syncUserRoles((string) $user['uri_user'], $roles, $tenant);
+                ClientApi::syncUserRoles((string) $user['uri_user'], $roles);
             }
 
             $this->info($response['message']);
@@ -93,20 +90,5 @@ class CreateUser extends Command
         }
 
         return $uris;
-    }
-
-    private function resolveTenant(): string
-    {
-        $tenant = trim((string) $this->option('tenant'));
-
-        if ($tenant === '') {
-            $tenant = trim((string) $this->ask('Tenant identifier'));
-        }
-
-        if ($tenant === '') {
-            throw new \RuntimeException('The --tenant option is required for user management commands.');
-        }
-
-        return $tenant;
     }
 }

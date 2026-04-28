@@ -18,8 +18,8 @@ Source: `routes/web.php`.
 
 | Config key                        | `.env` variable                   | Default              |
 | --------------------------------- | --------------------------------- | -------------------- |
-| `caronte.ROUTES_PREFIX`           | `CARONTE_ROUTES_PREFIX`           | `` (empty)           |
-| `caronte.LOGIN_URL`               | `CARONTE_LOGIN_URL`               | `/login`             |
+| `caronte.routes_prefix`           | `CARONTE_ROUTES_PREFIX`           | `` (empty)           |
+| `caronte.login_url`               | `CARONTE_LOGIN_URL`               | `/login`             |
 | `caronte.management.enabled`      | `CARONTE_MANAGEMENT_ENABLED`      | `true`               |
 | `caronte.management.route_prefix` | `CARONTE_MANAGEMENT_ROUTE_PREFIX` | `caronte/management` |
 | `caronte.management.access_roles` | `CARONTE_MANAGEMENT_ACCESS_ROLES` | `root`               |
@@ -70,12 +70,11 @@ Base prefix: `caronte/management` (configurable via `CARONTE_MANAGEMENT_ROUTE_PR
 
 Registered by the service provider on the Laravel `Router`:
 
-| Alias                 | Class                                                    | Purpose                                         |
-| --------------------- | -------------------------------------------------------- | ----------------------------------------------- |
-| `caronte.session`     | `Ometra\Caronte\Http\Middleware\ValidateSession`         | Validates JWT; auto-renews expired tokens       |
-| `caronte.roles`       | `Ometra\Caronte\Http\Middleware\ValidateRoles`           | Checks user has at least one of the given roles |
-| `caronte.application` | `Ometra\Caronte\Http\Middleware\ResolveApplicationToken` | Validates inbound `X-Application-Token` header  |
-| `caronte.tenant`      | `Ometra\Caronte\Http\Middleware\ResolveTenantContext`    | Extracts `X-Tenant-Id` into tenant context      |
+| Alias                 | Class                                                      | Purpose                                                           |
+| --------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------- |
+| `caronte.session`     | `Ometra\Caronte\Http\Middleware\ValidateUserToken`         | Validates JWT; auto-renews expired tokens                         |
+| `caronte.roles`       | `Ometra\Caronte\Http\Middleware\ValidateUserRoles`         | Checks user has at least one of the given roles                   |
+| `caronte.application` | `Ometra\Caronte\Http\Middleware\ResolveApplicationContext` | Validates `X-Application-Token`; resolves optional tenant context |
 
 ### Usage examples
 
@@ -86,8 +85,11 @@ Route::middleware(['caronte.session'])->group(function () { /* … */ });
 // Require specific roles (root is always implicitly included)
 Route::middleware(['caronte.session', 'caronte.roles:admin,editor'])->group(function () { /* … */ });
 
-// Accept inbound server-to-server calls
-Route::middleware(['caronte.application', 'caronte.tenant'])->group(function () { /* … */ });
+// Accept inbound server-to-server calls with optional tenant context
+Route::middleware(['caronte.application'])->group(function () { /* … */ });
+
+// Accept inbound server-to-server calls that require tenant context
+Route::middleware(['caronte.application:tenant_required'])->group(function () { /* … */ });
 ```
 
-> **Order matters:** `caronte.session` must run before `caronte.roles`. `caronte.application` must run before `caronte.tenant`.
+> **Order matters:** `caronte.session` must run before `caronte.roles`.

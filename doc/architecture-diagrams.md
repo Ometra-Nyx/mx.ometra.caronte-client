@@ -56,10 +56,9 @@ flowchart TD
 ```mermaid
 flowchart LR
     subgraph Middleware
-        VS[ValidateSession]
-        VR[ValidateRoles]
-        RAT[ResolveApplicationToken]
-        RTC[ResolveTenantContext]
+        VS[ValidateUserToken]
+        VR[ValidateUserRoles]
+        RAT[ResolveApplicationContext]
     end
 
     subgraph Controllers
@@ -85,8 +84,8 @@ flowchart LR
     subgraph Support
         AppToken[ApplicationToken]
         ConfigRoles[ConfiguredRoles]
-        ReqCtx[RequestContext]
-        TCR[TenantContextResolver]
+        RouteHelper[Equidna RouteHelper]
+        TenantContext[BeeHive TenantContext]
         PH[PermissionHelper]
     end
 
@@ -130,36 +129,36 @@ flowchart LR
 ```mermaid
 sequenceDiagram
     participant Browser
-    participant ValidateSession
+    participant ValidateUserToken
     participant Caronte as Caronte (Facade)
     participant CaronteToken
     participant Session
     participant CaronteServer
 
-    Browser->>ValidateSession: HTTP request
-    ValidateSession->>Caronte: getToken()
+    Browser->>ValidateUserToken: HTTP request
+    ValidateUserToken->>Caronte: getToken()
     Caronte->>Session: read caronte.user_token
     Session-->>Caronte: JWT string (or null)
-    Caronte-->>ValidateSession: JWT string
+    Caronte-->>ValidateUserToken: JWT string
 
-    ValidateSession->>CaronteToken: validateToken(jwt)
+    ValidateUserToken->>CaronteToken: validateToken(jwt)
     CaronteToken->>CaronteToken: assertSignatureAndIssuer()
 
     alt Token is valid
-        CaronteToken-->>ValidateSession: true
-        ValidateSession->>ValidateSession: checkApplicationAccess()
-        ValidateSession-->>Browser: pass through to controller
+        CaronteToken-->>ValidateUserToken: true
+        ValidateUserToken->>ValidateUserToken: checkApplicationAccess()
+        ValidateUserToken-->>Browser: pass through to controller
     else Token is expired
         CaronteToken->>CaronteToken: exchangeToken(jwt)
         CaronteToken->>CaronteServer: POST api/auth/exchange
         CaronteServer-->>CaronteToken: new JWT
         CaronteToken->>Caronte: saveToken(newJwt)
         Caronte->>Session: store new token
-        CaronteToken-->>ValidateSession: true (with X-User-Token header set)
-        ValidateSession-->>Browser: pass through + X-User-Token response header
+        CaronteToken-->>ValidateUserToken: true (with X-User-Token header set)
+        ValidateUserToken-->>Browser: pass through + X-User-Token response header
     else Token invalid / missing
-        CaronteToken-->>ValidateSession: false
-        ValidateSession-->>Browser: redirect to /login (or 401 for API)
+        CaronteToken-->>ValidateUserToken: false
+        ValidateUserToken-->>Browser: redirect to /login (or 401 for API)
     end
 ```
 

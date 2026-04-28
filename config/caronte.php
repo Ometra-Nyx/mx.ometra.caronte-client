@@ -6,45 +6,56 @@ return [
     | Caronte Server Configuration
     |--------------------------------------------------------------------------
     */
-    'URL'        => env('CARONTE_URL', ''),
-    'APP_ID'     => env('CARONTE_APP_ID', ''),
-    'APP_SECRET' => env('CARONTE_APP_SECRET', ''),
+    'url'        => env('CARONTE_URL', ''),
+    'app_cn'     => env('CARONTE_APP_CN', ''),
+    'app_secret' => env('CARONTE_APP_SECRET', ''),
 
     /*
     |--------------------------------------------------------------------------
     | JWT Token Configuration
     |--------------------------------------------------------------------------
     */
-    'ISSUER_ID'      => env('CARONTE_ISSUER_ID', 'caronte'),
-    'ENFORCE_ISSUER' => env('CARONTE_ENFORCE_ISSUER', true),
+    'issuer_id'      => env('CARONTE_ISSUER_ID', 'caronte'),
+    'enforce_issuer' => env('CARONTE_ENFORCE_ISSUER', true),
 
     /*
     |--------------------------------------------------------------------------
     | Authentication Features
     |--------------------------------------------------------------------------
     */
-    'USE_2FA'               => env('CARONTE_2FA', false),
-    'ALLOW_HTTP_REQUESTS'   => env('CARONTE_ALLOW_HTTP_REQUESTS', false),
-    'TLS_VERIFY'            => env('CARONTE_TLS_VERIFY', true),
-    'UPDATE_LOCAL_USER'     => env('CARONTE_UPDATE_LOCAL_USER', false),
-    'NOTIFICATION_DELIVERY' => env('CARONTE_NOTIFICATION_DELIVERY', 'server'),
-    'SESSION_KEY'           => env('CARONTE_SESSION_KEY', 'caronte.user_token'),
+    'use_2fa'               => env('CARONTE_2FA', false),
+    'allow_http_requests'   => env('CARONTE_ALLOW_HTTP_REQUESTS', false),
+    'tls_verify'            => env('CARONTE_TLS_VERIFY', true),
+    'update_local_user'     => env('CARONTE_UPDATE_LOCAL_USER', false),
+    'notification_delivery' => env('CARONTE_NOTIFICATION_DELIVERY', 'server'),
+    'session_key'           => env('CARONTE_SESSION_KEY', 'caronte.user_token'),
+
+    'notifications' => [
+        'two_factor_sender'       => env(
+            'CARONTE_TWO_FACTOR_SENDER',
+            Ometra\Caronte\Notifications\TwoFactorChallengeSender::class
+        ),
+        'password_recovery_sender' => env(
+            'CARONTE_PASSWORD_RECOVERY_SENDER',
+            Ometra\Caronte\Notifications\PasswordRecoverySender::class
+        ),
+    ],
 
     /*
     |--------------------------------------------------------------------------
     | Route Configuration
     |--------------------------------------------------------------------------
     */
-    'ROUTES_PREFIX' => env('CARONTE_ROUTES_PREFIX', ''),
-    'SUCCESS_URL'   => env('CARONTE_SUCCESS_URL', '/'),
-    'LOGIN_URL'     => env('CARONTE_LOGIN_URL', '/login'),
+    'routes_prefix' => env('CARONTE_ROUTES_PREFIX', ''),
+    'success_url'   => env('CARONTE_SUCCESS_URL', '/'),
+    'login_url'     => env('CARONTE_LOGIN_URL', '/login'),
 
     /*
     |--------------------------------------------------------------------------
     | HTTP Client
     |--------------------------------------------------------------------------
     */
-    'HTTP' => [
+    'http' => [
         'timeout'     => (int) env('CARONTE_HTTP_TIMEOUT', 10),
         'retries'     => (int) env('CARONTE_HTTP_RETRIES', 1),
         'retry_sleep' => (int) env('CARONTE_HTTP_RETRY_SLEEP', 150),
@@ -84,7 +95,7 @@ return [
     | View & UI Configuration
     |--------------------------------------------------------------------------
     */
-    'USE_INERTIA' => env('CARONTE_USE_INERTIA', false),
+    'use_inertia' => env('CARONTE_USE_INERTIA', false),
     'ui' => [
         'branding' => [
             'app_name'      => env('CARONTE_UI_APP_NAME', env('APP_NAME', 'Caronte')),

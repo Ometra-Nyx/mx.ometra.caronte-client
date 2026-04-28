@@ -7,8 +7,9 @@ use Illuminate\Http\Request;
 use Ometra\Caronte\Helpers\PermissionHelper;
 use Ometra\Caronte\Support\CaronteResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
-class ValidateRoles
+class ValidateUserRoles
 {
     public function handle(Request $request, Closure $next, ...$roles): Response
     {
@@ -17,15 +18,15 @@ class ValidateRoles
                 return CaronteResponse::forbidden(
                     message: 'User does not have access to this feature.',
                     errors: ['User does not have the required roles: ' . implode(', ', $roles)],
-                    forwardUrl: (string) config('caronte.LOGIN_URL')
+                    forwardUrl: (string) config('caronte.login_url')
                 );
             }
 
             return $next($request);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             return CaronteResponse::unauthorized(
                 message: $exception->getMessage(),
-                forwardUrl: (string) config('caronte.LOGIN_URL')
+                forwardUrl: (string) config('caronte.login_url')
             );
         }
     }

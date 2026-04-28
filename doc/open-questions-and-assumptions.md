@@ -114,6 +114,6 @@ The package uses `Log::info/warning/error()` with unstructured string messages. 
 
 ### 12. Mail and notification senders are untested
 
-`LaravelPasswordRecoverySender` and `LaravelTwoFactorChallengeSender` (under `src/Notifications/`) have no test coverage. Delivery behavior when `CARONTE_NOTIFICATION_DELIVERY=host` is not verified.
+`PasswordRecoverySender` and `TwoFactorChallengeSender` (under `src/Notifications/`) are the default host-delivery implementations. Custom senders can be configured through `caronte.notifications.password_recovery_sender` and `caronte.notifications.two_factor_sender`.
 
 **Action required:** Add feature tests using `Mail::fake()` or `Notification::fake()` to verify email dispatch when the host delivery mode is active.

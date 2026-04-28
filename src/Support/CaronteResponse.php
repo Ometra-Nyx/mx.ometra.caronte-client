@@ -109,7 +109,7 @@ class CaronteResponse
         array $headers = [],
         ?string $forwardUrl = null
     ): JsonResponse|RedirectResponse {
-        if (RequestContext::isApi()) {
+        if (RouteMode::wantsJson()) {
             return static::json($status, $message, $errors, $data, $headers);
         }
 

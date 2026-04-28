@@ -3,14 +3,15 @@
 namespace Ometra\Caronte\Http\Middleware;
 
 use Closure;
+use Ometra\Caronte\Support\RouteMode;
 use Illuminate\Http\Request;
 use Ometra\Caronte\Facades\Caronte;
 use Ometra\Caronte\Helpers\PermissionHelper;
 use Ometra\Caronte\Support\CaronteResponse;
-use Ometra\Caronte\Support\RequestContext;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
-class ValidateSession
+class ValidateUserToken
 {
     public function handle(Request $request, Closure $next): Response
     {
@@ -21,21 +22,21 @@ class ValidateSession
                 return CaronteResponse::forbidden(
                     message: 'User does not have access to this application.',
                     errors: ['User does not have access to this application.'],
-                    forwardUrl: (string) config('caronte.LOGIN_URL')
+                    forwardUrl: (string) config('caronte.login_url')
                 );
             }
 
             $response = $next($request);
 
-            if (Caronte::tokenWasExchanged() && RequestContext::isApi()) {
+            if (Caronte::tokenWasExchanged() && RouteMode::wantsJson()) {
                 $response->headers->set('X-User-Token', $token->toString());
             }
 
             return $response;
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             return CaronteResponse::unauthorized(
                 message: $exception->getMessage(),
-                forwardUrl: (string) config('caronte.LOGIN_URL')
+                forwardUrl: (string) config('caronte.login_url')
             );
         }
     }

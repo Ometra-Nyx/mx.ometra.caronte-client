@@ -34,7 +34,7 @@ CARONTE_LOG_LEVEL=debug
 | Exception                                          | Cause                                             |
 | -------------------------------------------------- | ------------------------------------------------- |
 | `Ometra\Caronte\Exceptions\CaronteApiException`    | Non-2xx response from the Caronte server          |
-| `Ometra\Caronte\Exceptions\TenantMissingException` | `caronte.tenant` middleware: no tenant resolvable |
+| `Ometra\Caronte\Exceptions\TenantMissingException` | `caronte.application:tenant_required`: no tenant resolvable |
 | `Equidna\Toolkit\Exceptions\UnauthorizedException` | Invalid or missing user JWT                       |
 | `Equidna\Toolkit\Exceptions\BadRequestException`   | Malformed API request payload                     |
 
@@ -68,7 +68,7 @@ CARONTE_LOG_LEVEL=debug
 ### All requests return 401 / redirect to login
 
 1. Verify `CARONTE_URL` points to a reachable Caronte server.
-2. Check `CARONTE_APP_ID` and `CARONTE_APP_SECRET` are correct and at least 32 characters long.
+2. Check `CARONTE_APP_CN` and `CARONTE_APP_SECRET` are correct and at least 32 characters long.
 3. Confirm the JWT `issuer` claim matches `CARONTE_ISSUER_ID` (default: `caronte`).
 4. Check for clock drift between the host server and the Caronte server (JWT `nbf`/`exp` claims are time-sensitive).
 5. Run `php artisan config:clear` to ensure stale configuration is not cached.
@@ -85,7 +85,7 @@ CARONTE_LOG_LEVEL=debug
 ### Management UI returns 403
 
 1. Confirm the authenticated user has the `root` role or one of the roles in `CARONTE_MANAGEMENT_ACCESS_ROLES`.
-2. Check that the application token (`APP_ID` + `APP_SECRET`) is correctly registered on the Caronte server.
+2. Check that the application token (`app_cn` + `app_secret`) is correctly registered on the Caronte server.
 3. Run `php artisan caronte:roles:sync` to ensure roles are synced.
 
 ---
@@ -106,7 +106,7 @@ The package enforces a minimum secret length in `CaronteToken::getConfig()` (`sr
 
 ### `TenantMissingException` in production
 
-`ResolveTenantContext` middleware requires one of:
+`caronte.application:tenant_required` requires one of:
 
 - `X-Tenant-Id` header in the request.
 - A tenant bound by `equidna/bee-hive`'s `TenantContext`.

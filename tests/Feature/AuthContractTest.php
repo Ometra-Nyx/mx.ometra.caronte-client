@@ -4,11 +4,15 @@ namespace Tests\Feature;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ViewErrorBag;
 use Illuminate\Support\MessageBag;
+use Ometra\Caronte\Api\CaronteApiClient;
+use Ometra\Caronte\Contracts\SendsPasswordRecovery;
+use Ometra\Caronte\Contracts\SendsTwoFactorChallenge;
 use Ometra\Caronte\Mail\PasswordRecoveryMail;
 use Ometra\Caronte\Mail\TwoFactorChallengeMail;
-use Ometra\Caronte\Support\ApplicationToken;
+use Ometra\Caronte\Support\CaronteApplicationToken;
 use Tests\TestCase;
 
 class AuthContractTest extends TestCase
@@ -31,11 +35,11 @@ class AuthContractTest extends TestCase
         ]);
 
         $response->assertRedirect('/');
-        $this->assertSame($token, session(config('caronte.SESSION_KEY')));
+        $this->assertSame($token, session(config('caronte.session_key')));
 
         Http::assertSent(function ($request): bool {
             return $request->url() === 'https://caronte.test/api/auth/login'
-                && $request->hasHeader('X-Application-Token', ApplicationToken::make())
+                && $request->hasHeader('X-Application-Token', CaronteApplicationToken::make())
                 && $request['email'] === 'root@example.com'
                 && $request['password'] === 'Password123!';
         });
@@ -43,7 +47,7 @@ class AuthContractTest extends TestCase
 
     public function test_host_notification_delivery_uses_issue_endpoints_and_package_mailables(): void
     {
-        config()->set('caronte.NOTIFICATION_DELIVERY', 'host');
+        config()->set('caronte.notification_delivery', 'host');
 
         Http::fake([
             'https://caronte.test/api/auth/2fa/issue' => Http::response([
@@ -73,6 +77,19 @@ class AuthContractTest extends TestCase
 
         Mail::assertSent(TwoFactorChallengeMail::class);
         Mail::assertSent(PasswordRecoveryMail::class);
+
+        Http::assertSent(function ($request): bool {
+            return $request->url() === 'https://caronte.test/api/auth/2fa/issue'
+                && $request['email'] === 'root@example.com'
+                && isset($request['callback_url'])
+                && ! array_key_exists('app_url', $request->data());
+        });
+
+        Http::assertSent(function ($request): bool {
+            return $request->url() === 'https://caronte.test/api/auth/password/recover/issue'
+                && $request['email'] === 'root@example.com'
+                && ! array_key_exists('app_url', $request->data());
+        });
     }
 
     public function test_package_auth_views_render_without_explicit_branding(): void
@@ -110,6 +127,71 @@ class AuthContractTest extends TestCase
         );
     }
 
+    public function test_notification_senders_are_resolved_from_configuration(): void
+    {
+        config()->set('caronte.notifications.two_factor_sender', TestTwoFactorChallengeSender::class);
+        config()->set('caronte.notifications.password_recovery_sender', TestPasswordRecoverySender::class);
+
+        TestTwoFactorChallengeSender::$sent = [];
+        TestPasswordRecoverySender::$sent = [];
+
+        app(SendsTwoFactorChallenge::class)->send(
+            email: 'root@example.com',
+            actionUrl: 'https://client.test/2fa/example-token',
+            expiresAt: '2026-04-25T10:00:00Z'
+        );
+
+        app(SendsPasswordRecovery::class)->send(
+            email: 'root@example.com',
+            actionUrl: 'https://client.test/password/recover/example-token',
+            expiresAt: '2026-04-25T10:00:00Z'
+        );
+
+        $this->assertSame([
+            'email' => 'root@example.com',
+            'actionUrl' => 'https://client.test/2fa/example-token',
+            'expiresAt' => '2026-04-25T10:00:00Z',
+        ], TestTwoFactorChallengeSender::$sent);
+
+        $this->assertSame([
+            'email' => 'root@example.com',
+            'actionUrl' => 'https://client.test/password/recover/example-token',
+            'expiresAt' => '2026-04-25T10:00:00Z',
+        ], TestPasswordRecoverySender::$sent);
+    }
+
+    public function test_user_request_injects_current_user_token(): void
+    {
+        $token = $this->makeToken();
+
+        Route::middleware('web')->get('/_caronte/user-request-check', function () {
+            app(CaronteApiClient::class)->userRequest(
+                method: 'get',
+                endpoint: 'api/auth/current-user'
+            );
+
+            return response('ok');
+        });
+
+        Http::fake([
+            'https://caronte.test/api/auth/current-user' => Http::response([
+                'status' => 200,
+                'message' => 'Current user retrieved',
+                'data' => [],
+            ], 200),
+        ]);
+
+        $this->withSession([
+            config('caronte.session_key') => $token,
+        ])->get('/_caronte/user-request-check')->assertOk();
+
+        Http::assertSent(function ($request) use ($token): bool {
+            return $request->url() === 'https://caronte.test/api/auth/current-user'
+                && !$request->hasHeader('X-Application-Token')
+                && $request->hasHeader('X-User-Token', $token);
+        });
+    }
+
     public function test_flash_partial_deduplicates_error_messages(): void
     {
         session()->flash('error', 'Token not found');
@@ -123,5 +205,27 @@ class AuthContractTest extends TestCase
 
         $this->assertSame(1, substr_count($html, 'alert alert-danger'));
         $this->assertSame(0, substr_count($html, 'alert alert-info'));
+    }
+}
+
+class TestTwoFactorChallengeSender implements SendsTwoFactorChallenge
+{
+    /** @var array{email?: string, actionUrl?: string, expiresAt?: string|null} */
+    public static array $sent = [];
+
+    public function send(string $email, string $actionUrl, ?string $expiresAt = null): void
+    {
+        self::$sent = compact('email', 'actionUrl', 'expiresAt');
+    }
+}
+
+class TestPasswordRecoverySender implements SendsPasswordRecovery
+{
+    /** @var array{email?: string, actionUrl?: string, expiresAt?: string|null} */
+    public static array $sent = [];
+
+    public function send(string $email, string $actionUrl, ?string $expiresAt = null): void
+    {
+        self::$sent = compact('email', 'actionUrl', 'expiresAt');
     }
 }

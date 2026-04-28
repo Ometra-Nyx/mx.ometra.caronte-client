@@ -10,6 +10,7 @@ use Ometra\Caronte\Api\ClientApi;
 use Ometra\Caronte\Support\CaronteResponse;
 use Ometra\Caronte\Support\ConfiguredRoles;
 use Symfony\Component\HttpFoundation\Response;
+use Exception;
 
 class UserController extends BaseController
 {
@@ -47,7 +48,7 @@ class UserController extends BaseController
             return redirect()
                 ->route('caronte.management.users.show', ['uri_user' => $user['uri_user']])
                 ->with('success', $response['message']);
-        } catch (\Exception $exception) {
+        } catch (Exception $exception) {
             return CaronteResponse::handleException(
                 exception: $exception,
                 forwardUrl: route('caronte.management.dashboard')
@@ -85,7 +86,7 @@ class UserController extends BaseController
                     'deleteMetadata' => route('caronte.management.users.metadata.delete', ['uri_user' => $uri_user]),
                 ],
             ], true);
-        } catch (\Exception $exception) {
+        } catch (Exception $exception) {
             return CaronteResponse::handleException(
                 exception: $exception,
                 forwardUrl: route('caronte.management.dashboard')
@@ -107,7 +108,7 @@ class UserController extends BaseController
             return redirect()
                 ->route('caronte.management.users.show', ['uri_user' => $uri_user])
                 ->with('success', $response['message']);
-        } catch (\Exception $exception) {
+        } catch (Exception $exception) {
             return CaronteResponse::handleException(
                 exception: $exception,
                 forwardUrl: route('caronte.management.users.show', ['uri_user' => $uri_user])
@@ -133,7 +134,7 @@ class UserController extends BaseController
             return redirect()
                 ->route('caronte.management.users.show', ['uri_user' => $uri_user])
                 ->with('success', $response['message']);
-        } catch (\Exception $exception) {
+        } catch (Exception $exception) {
             return CaronteResponse::handleException(
                 exception: $exception,
                 forwardUrl: route('caronte.management.users.show', ['uri_user' => $uri_user])
@@ -161,7 +162,7 @@ class UserController extends BaseController
             return redirect()
                 ->route('caronte.management.users.show', ['uri_user' => $uri_user])
                 ->with('success', $response['message']);
-        } catch (\Exception $exception) {
+        } catch (Exception $exception) {
             return CaronteResponse::handleException(
                 exception: $exception,
                 forwardUrl: route('caronte.management.users.show', ['uri_user' => $uri_user])
@@ -186,7 +187,7 @@ class UserController extends BaseController
             return redirect()
                 ->route('caronte.management.users.show', ['uri_user' => $uri_user])
                 ->with('success', $response['message']);
-        } catch (\Exception $exception) {
+        } catch (Exception $exception) {
             return CaronteResponse::handleException(
                 exception: $exception,
                 forwardUrl: route('caronte.management.users.show', ['uri_user' => $uri_user])
@@ -202,7 +203,7 @@ class UserController extends BaseController
             return redirect()
                 ->route('caronte.management.dashboard')
                 ->with('success', $response['message']);
-        } catch (\Exception $exception) {
+        } catch (Exception $exception) {
             return CaronteResponse::handleException(
                 exception: $exception,
                 forwardUrl: route('caronte.management.dashboard')

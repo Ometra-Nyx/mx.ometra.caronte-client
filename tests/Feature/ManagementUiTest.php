@@ -21,14 +21,14 @@ class ManagementUiTest extends TestCase
                 'status' => 200,
                 'message' => 'Roles retrieved',
                 'data' => [
-                    ['uri_applicationRole' => sha1(\Ometra\Caronte\Support\ApplicationToken::appId() . 'root'), 'name' => 'root', 'description' => 'Default super administrator role'],
-                    ['uri_applicationRole' => sha1(\Ometra\Caronte\Support\ApplicationToken::appId() . 'admin'), 'name' => 'admin', 'description' => 'Administrative access'],
+                    ['uri_applicationRole' => sha1(\Ometra\Caronte\Support\CaronteApplicationToken::appId() . 'root'), 'name' => 'root', 'description' => 'Default super administrator role'],
+                    ['uri_applicationRole' => sha1(\Ometra\Caronte\Support\CaronteApplicationToken::appId() . 'admin'), 'name' => 'admin', 'description' => 'Administrative access'],
                 ],
             ], 200),
         ]);
 
         $this->withSession([
-            config('caronte.SESSION_KEY') => $this->makeToken(),
+            config('caronte.session_key') => $this->makeToken(),
         ])->get('/caronte/management')
             ->assertOk()
             ->assertSee('User management')

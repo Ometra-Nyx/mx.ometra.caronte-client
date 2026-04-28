@@ -7,7 +7,7 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
-use Ometra\Caronte\Api\CaronteHttpClient;
+use Ometra\Caronte\Api\CaronteApiClient;
 use Ometra\Caronte\Caronte;
 use Ometra\Caronte\Console\Commands\ManagementCaronte;
 use Ometra\Caronte\Console\Commands\Roles\SyncRoles;
@@ -20,13 +20,13 @@ use Ometra\Caronte\Contracts\SendsPasswordRecovery;
 use Ometra\Caronte\Contracts\SendsTwoFactorChallenge;
 use Ometra\Caronte\Facades\Caronte as CaronteFacade;
 use Ometra\Caronte\Helpers\PermissionHelper;
-use Ometra\Caronte\Http\Middleware\ResolveApplicationToken;
-use Ometra\Caronte\Http\Middleware\ResolveTenantContext;
-use Ometra\Caronte\Http\Middleware\ValidateRoles;
-use Ometra\Caronte\Http\Middleware\ValidateSession;
-use Ometra\Caronte\Notifications\LaravelPasswordRecoverySender;
-use Ometra\Caronte\Notifications\LaravelTwoFactorChallengeSender;
+use Ometra\Caronte\Http\Middleware\ResolveApplicationContext;
+use Ometra\Caronte\Http\Middleware\ValidateUserRoles;
+use Ometra\Caronte\Http\Middleware\ValidateUserToken;
+use Ometra\Caronte\Notifications\PasswordRecoverySender;
+use Ometra\Caronte\Notifications\TwoFactorChallengeSender;
 use Ometra\Caronte\Support\ConfiguredRoles;
+use InvalidArgumentException;
 
 class CaronteServiceProvider extends ServiceProvider
 {
@@ -35,10 +35,41 @@ class CaronteServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__ . '/../../config/caronte.php', 'caronte');
 
         $this->app->singleton(Caronte::class, fn() => new Caronte());
-        $this->app->singleton(CaronteHttpClient::class, fn() => new CaronteHttpClient());
+        $this->app->singleton(CaronteApiClient::class, fn() => new CaronteApiClient());
 
-        $this->app->bind(SendsTwoFactorChallenge::class, LaravelTwoFactorChallengeSender::class);
-        $this->app->bind(SendsPasswordRecovery::class, LaravelPasswordRecoverySender::class);
+        $this->app->bind(SendsTwoFactorChallenge::class, function ($app): SendsTwoFactorChallenge {
+            $sender = $app->make((string) config(
+                'caronte.notifications.two_factor_sender',
+                TwoFactorChallengeSender::class
+            ));
+
+            if (!$sender instanceof SendsTwoFactorChallenge) {
+                throw new \InvalidArgumentException(sprintf(
+                    'Caronte: %s must implement %s.',
+                    $sender::class,
+                    SendsTwoFactorChallenge::class
+                ));
+            }
+
+            return $sender;
+        });
+
+        $this->app->bind(SendsPasswordRecovery::class, function ($app): SendsPasswordRecovery {
+            $sender = $app->make((string) config(
+                'caronte.notifications.password_recovery_sender',
+                PasswordRecoverySender::class
+            ));
+
+            if (!$sender instanceof SendsPasswordRecovery) {
+                throw new \InvalidArgumentException(sprintf(
+                    'Caronte: %s must implement %s.',
+                    $sender::class,
+                    SendsPasswordRecovery::class
+                ));
+            }
+
+            return $sender;
+        });
     }
 
     public function boot(Router $router): void
@@ -51,10 +82,9 @@ class CaronteServiceProvider extends ServiceProvider
         $loader->alias('Caronte', CaronteFacade::class);
         $loader->alias('PermissionHelper', PermissionHelper::class);
 
-        $router->aliasMiddleware('caronte.session', ValidateSession::class);
-        $router->aliasMiddleware('caronte.roles', ValidateRoles::class);
-        $router->aliasMiddleware('caronte.application', ResolveApplicationToken::class);
-        $router->aliasMiddleware('caronte.tenant', ResolveTenantContext::class);
+        $router->aliasMiddleware('caronte.session', ValidateUserToken::class);
+        $router->aliasMiddleware('caronte.roles', ValidateUserRoles::class);
+        $router->aliasMiddleware('caronte.application', ResolveApplicationContext::class);
 
         Route::middleware(['web'])->group(function (): void {
             $this->loadRoutesFrom(__DIR__ . '/../../routes/web.php');
@@ -125,10 +155,10 @@ class CaronteServiceProvider extends ServiceProvider
     protected function validateCaronteConfig(): void
     {
         $required = [
-            'caronte.URL',
-            'caronte.APP_ID',
-            'caronte.APP_SECRET',
-            'caronte.LOGIN_URL',
+            'caronte.url',
+            'caronte.app_cn',
+            'caronte.app_secret',
+            'caronte.login_url',
         ];
 
         $missing = [];
@@ -141,21 +171,21 @@ class CaronteServiceProvider extends ServiceProvider
             }
         }
 
-        if (config('caronte.ENFORCE_ISSUER') && empty(config('caronte.ISSUER_ID'))) {
-            $missing[] = 'caronte.ISSUER_ID';
+        if (config('caronte.enforce_issuer') && empty(config('caronte.issuer_id'))) {
+            $missing[] = 'caronte.issuer_id';
         }
 
         if ($missing !== []) {
-            throw new \InvalidArgumentException(
+            throw new InvalidArgumentException(
                 'Caronte: Missing required configuration: ' . implode(', ', $missing) . '.'
             );
         }
 
-        $url = (string) config('caronte.URL');
+        $url = (string) config('caronte.url');
         $scheme = parse_url($url, PHP_URL_SCHEME);
 
-        if ($scheme !== 'https' && ! (bool) config('caronte.ALLOW_HTTP_REQUESTS', false)) {
-            throw new \InvalidArgumentException(
+        if ($scheme !== 'https' && ! (bool) config('caronte.allow_http_requests', false)) {
+            throw new InvalidArgumentException(
                 'Caronte: CARONTE_URL must use HTTPS unless CARONTE_ALLOW_HTTP_REQUESTS=true.'
             );
         }

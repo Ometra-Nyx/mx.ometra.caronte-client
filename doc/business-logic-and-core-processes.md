@@ -7,7 +7,7 @@
 | **User**              | An individual authenticated by the Caronte server. Identified by `uri_user` (opaque string, immutable PK).   |
 | **Tenant**            | Organizational partition. Stored as `id_tenant` in the JWT and in the local `Users` table.                   |
 | **Role**              | A named permission label (e.g. `admin`, `editor`). Defined in `config/caronte.php` and synced to the server. |
-| **Application Token** | A credential for server-to-server API calls. Format: `base64(sha1(APP_ID) + ":" + APP_SECRET)`.              |
+| **Application Token** | A credential for server-to-server API calls. Format: `base64(sha1(app_cn) + ":" + app_secret)`.              |
 | **User Token (JWT)**  | A short-lived JWT issued by the Caronte server to an end user after successful authentication.               |
 | **Token Exchange**    | The act of trading an expired-but-valid JWT for a fresh one, without re-entering credentials.                |
 
@@ -53,44 +53,44 @@ sequenceDiagram
 
 **Trigger:** Any request passing through the `caronte.session` middleware.
 
-**Actors:** `ValidateSession` → `Caronte` Facade → `CaronteToken`.
+**Actors:** `ValidateUserToken` → `Caronte` Facade → `CaronteToken`.
 
 ```mermaid
 sequenceDiagram
     participant Browser
-    participant ValidateSession
+    participant ValidateUserToken
     participant Caronte
     participant CaronteToken
     participant CaronteServer
 
-    Browser->>ValidateSession: HTTP request
-    ValidateSession->>Caronte: getToken()
-    Caronte-->>ValidateSession: jwt | null
+    Browser->>ValidateUserToken: HTTP request
+    ValidateUserToken->>Caronte: getToken()
+    Caronte-->>ValidateUserToken: jwt | null
 
     alt No token
-        ValidateSession-->>Browser: redirect /login
+        ValidateUserToken-->>Browser: redirect /login
     else Token present
-        ValidateSession->>CaronteToken: validateToken(jwt)
+        ValidateUserToken->>CaronteToken: validateToken(jwt)
         CaronteToken->>CaronteToken: parseAndVerifySignature()
 
         alt Valid & not expired
-            CaronteToken-->>ValidateSession: true
-            ValidateSession->>ValidateSession: hasApplication() check
-            ValidateSession-->>Browser: next middleware
+            CaronteToken-->>ValidateUserToken: true
+            ValidateUserToken->>ValidateUserToken: hasApplication() check
+            ValidateUserToken-->>Browser: next middleware
         else Expired
             CaronteToken->>CaronteServer: POST api/auth/exchange
             CaronteServer-->>CaronteToken: new JWT
             CaronteToken->>Caronte: saveToken(newJwt)
-            CaronteToken-->>ValidateSession: true
-            ValidateSession-->>Browser: next + X-User-Token header
+            CaronteToken-->>ValidateUserToken: true
+            ValidateUserToken-->>Browser: next + X-User-Token header
         else Invalid signature / issuer
-            CaronteToken-->>ValidateSession: false
-            ValidateSession-->>Browser: redirect /login (or 401)
+            CaronteToken-->>ValidateUserToken: false
+            ValidateUserToken-->>Browser: redirect /login (or 401)
         end
     end
 ```
 
-**Key classes:** `src/Http/Middleware/ValidateSession.php`, `src/CaronteToken.php`.
+**Key classes:** `src/Http/Middleware/ValidateUserToken.php`, `src/CaronteToken.php`.
 
 **Guard against loops:** `CaronteToken::$exchanging` (static boolean) prevents re-entrant exchange calls.
 
@@ -130,9 +130,9 @@ if (in_array('root', $userRoles, true)) {
 | Mode     | Who sends the email                                                                             |
 | -------- | ----------------------------------------------------------------------------------------------- |
 | `server` | Caronte server sends the email directly (default)                                               |
-| `host`   | The host app sends the email via `Ometra\Caronte\Notifications\LaravelTwoFactorChallengeSender` |
+| `host`   | The host app sends the email via the configured notification sender classes |
 
-**Key classes:** `src/Http/Controllers/AuthController.php`, `src/CaronteRequest.php`, `src/Notifications/LaravelTwoFactorChallengeSender.php`.
+**Key classes:** `src/Http/Controllers/AuthController.php`, `src/CaronteRequest.php`, `src/Notifications/TwoFactorChallengeSender.php`, `src/Notifications/PasswordRecoverySender.php`.
 
 ---
 
@@ -160,7 +160,7 @@ if (in_array('root', $userRoles, true)) {
 
 **Purpose:** Maintains a local replica of user data for reporting, relationships, or offline queries without hitting the Caronte server.
 
-**Trigger:** `Caronte::updateUserData()` is called during session validation in `ValidateSession`.
+**Trigger:** `Caronte::updateUserData()` is called during session validation in `ValidateUserToken`.
 
 **Flow:**
 

@@ -10,7 +10,7 @@ use Lcobucci\JWT\Signer\Hmac\Sha256;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Ometra\Caronte\Providers\CaronteServiceProvider;
-use Ometra\Caronte\Support\ApplicationToken;
+use Ometra\Caronte\Support\CaronteApplicationToken;
 
 abstract class TestCase extends Orchestra
 {
@@ -31,14 +31,14 @@ abstract class TestCase extends Orchestra
             sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'caronte-client-views-' . getmypid()
         );
 
-        $app['config']->set('caronte.URL', 'https://caronte.test/');
-        $app['config']->set('caronte.APP_ID', 'test-app-id');
-        $app['config']->set('caronte.APP_SECRET', 'test-app-secret-with-minimum-length-32');
-        $app['config']->set('caronte.LOGIN_URL', '/login');
-        $app['config']->set('caronte.ISSUER_ID', 'caronte');
-        $app['config']->set('caronte.ENFORCE_ISSUER', true);
-        $app['config']->set('caronte.ROUTES_PREFIX', '');
-        $app['config']->set('caronte.USE_INERTIA', false);
+        $app['config']->set('caronte.url', 'https://caronte.test/');
+        $app['config']->set('caronte.app_cn', 'test-app-id');
+        $app['config']->set('caronte.app_secret', 'test-app-secret-with-minimum-length-32');
+        $app['config']->set('caronte.login_url', '/login');
+        $app['config']->set('caronte.issuer_id', 'caronte');
+        $app['config']->set('caronte.enforce_issuer', true);
+        $app['config']->set('caronte.routes_prefix', '');
+        $app['config']->set('caronte.use_inertia', false);
         $app['config']->set('caronte.management.enabled', true);
         $app['config']->set('caronte.management.route_prefix', 'caronte/management');
         $app['config']->set('caronte.management.access_roles', ['root']);
@@ -69,8 +69,8 @@ abstract class TestCase extends Orchestra
             'roles' => [
                 [
                     'name' => 'root',
-                    'app_id' => ApplicationToken::appId(),
-                    'uri_applicationRole' => sha1(ApplicationToken::appId() . 'root'),
+                    'app_id' => CaronteApplicationToken::appId(),
+                    'uri_applicationRole' => sha1(CaronteApplicationToken::appId() . 'root'),
                 ],
             ],
             'metadata' => [],
@@ -78,15 +78,15 @@ abstract class TestCase extends Orchestra
 
         $config = Configuration::forSymmetricSigner(
             new Sha256(),
-            InMemory::plainText((string) config('caronte.APP_SECRET'))
+            InMemory::plainText((string) config('caronte.app_secret'))
         );
 
         return $config->builder(ChainedFormatter::default())
-            ->issuedBy((string) config('caronte.ISSUER_ID', ''))
+            ->issuedBy((string) config('caronte.issuer_id', ''))
             ->issuedAt($issuedAt)
             ->canOnlyBeUsedAfter($issuedAt)
             ->expiresAt($expiresAt)
-            ->withClaim('app_id', ApplicationToken::appId())
+            ->withClaim('app_id', CaronteApplicationToken::appId())
             ->withClaim('user', json_encode($user))
             ->getToken($config->signer(), $config->signingKey())
             ->toString();

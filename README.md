@@ -55,7 +55,7 @@
 
    ```dotenv
    CARONTE_URL=https://your-caronte-server.example.com/
-   CARONTE_APP_ID=your-app-id
+   CARONTE_APP_CN=your-app-cn
    CARONTE_APP_SECRET=your-app-secret-minimum-32-chars
    ```
 
@@ -140,6 +140,15 @@ Management access defaults to `root` only:
 ## Host-managed password recovery and 2FA
 
 Set `CARONTE_NOTIFICATION_DELIVERY=host` if the host application should send password-recovery and 2FA emails.
+
+The sender implementations are configurable in `config/caronte.php`:
+
+```php
+'notifications' => [
+    'two_factor_sender' => App\Auth\TwoFactorChallengeSender::class,
+    'password_recovery_sender' => App\Auth\PasswordRecoverySender::class,
+],
+```
 
 In that mode the package expects Caronte to expose:
 

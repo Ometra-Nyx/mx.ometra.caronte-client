@@ -49,8 +49,8 @@ class ConfigurationValidationTest extends TestCase
 
     public function test_caronte_url_must_use_https_unless_http_is_explicitly_allowed(): void
     {
-        config()->set('caronte.URL', 'http://caronte.test');
-        config()->set('caronte.ALLOW_HTTP_REQUESTS', false);
+        config()->set('caronte.url', 'http://caronte.test');
+        config()->set('caronte.allow_http_requests', false);
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('CARONTE_URL must use HTTPS');
@@ -60,8 +60,8 @@ class ConfigurationValidationTest extends TestCase
 
     public function test_http_caronte_url_is_allowed_when_explicitly_enabled(): void
     {
-        config()->set('caronte.URL', 'http://caronte.test');
-        config()->set('caronte.ALLOW_HTTP_REQUESTS', true);
+        config()->set('caronte.url', 'http://caronte.test');
+        config()->set('caronte.allow_http_requests', true);
 
         $this->validatePackageConfig();
 

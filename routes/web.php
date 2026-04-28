@@ -6,8 +6,8 @@ use Ometra\Caronte\Http\Controllers\ManagementController;
 use Ometra\Caronte\Http\Controllers\RoleController;
 use Ometra\Caronte\Http\Controllers\UserController;
 
-$authPrefix = trim((string) config('caronte.ROUTES_PREFIX', ''), '/');
-$loginPath = trim((string) config('caronte.LOGIN_URL', '/login'), '/');
+$authPrefix = trim((string) config('caronte.routes_prefix', ''), '/');
+$loginPath = trim((string) config('caronte.login_url', '/login'), '/');
 $managementPrefix = trim((string) config('caronte.management.route_prefix', 'caronte/management'), '/');
 $managementRoles = implode(',', \Ometra\Caronte\Support\ConfiguredRoles::accessRoles());
 

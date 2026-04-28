@@ -12,7 +12,7 @@ class BaseController extends Controller
     {
         $useInertia = $management
             ? (bool) config('caronte.management.use_inertia', false)
-            : (bool) config('caronte.USE_INERTIA', false);
+            : (bool) config('caronte.use_inertia', false);
 
         if ($useInertia) {
             return inertia(str_replace('.', '/', $viewPath), $data);

@@ -4,6 +4,8 @@ namespace Ometra\Caronte;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Equidna\Toolkit\Exceptions\BadRequestException;
+use Equidna\Toolkit\Exceptions\UnprocessableEntityException;
 use Illuminate\Support\Arr;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Hmac\Sha256;
@@ -11,16 +13,14 @@ use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Token\Plain;
 use Lcobucci\JWT\Validation\Constraint\IssuedBy;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
-use Ometra\Caronte\Api\CaronteHttpClient;
+use Ometra\Caronte\Api\AuthApi;
 use Ometra\Caronte\Exceptions\CaronteApiException;
 use Ometra\Caronte\Facades\Caronte;
-use Ometra\Caronte\Support\ApplicationToken;
-use Ometra\Caronte\Support\RequestContext;
+use Ometra\Caronte\Support\CaronteApplicationToken;
+use Ometra\Caronte\Support\RouteMode;
 use RuntimeException;
-use Equidna\Toolkit\Exceptions\BadRequestException;
-use Equidna\Toolkit\Exceptions\UnprocessableEntityException;
 
-class CaronteToken
+final class CaronteToken
 {
     public const MINIMUM_KEY_LENGTH = 32;
 
@@ -43,7 +43,7 @@ class CaronteToken
 
         static::assertNotBefore($token);
 
-        if (config('caronte.UPDATE_LOCAL_USER')) {
+        if (config('caronte.update_local_user')) {
             Caronte::updateUserData((string) $token->claims()->get('user'));
         }
 
@@ -59,13 +59,7 @@ class CaronteToken
         static::$exchanging = true;
 
         try {
-            /** @var CaronteHttpClient $client */
-            $client = app(CaronteHttpClient::class);
-            $response = $client->authRequest(
-                method: 'post',
-                endpoint: 'api/auth/exchange',
-                userToken: $rawToken,
-            );
+            $response = AuthApi::exchange($rawToken);
 
             $tokenString = Arr::get($response, 'data.token');
 
@@ -75,7 +69,7 @@ class CaronteToken
 
             $token = static::validateToken($tokenString, skipExchange: true);
 
-            if (RequestContext::isWeb()) {
+            if (RouteMode::isWeb()) {
                 Caronte::saveToken($token->toString());
             }
 
@@ -119,7 +113,7 @@ class CaronteToken
 
     public static function getConfig(): Configuration
     {
-        $signingKey = (string) config('caronte.APP_SECRET');
+        $signingKey = (string) config('caronte.app_secret');
 
         if (mb_strlen($signingKey) < static::MINIMUM_KEY_LENGTH) {
             throw new RuntimeException(
@@ -145,8 +139,8 @@ class CaronteToken
             new SignedWith($config->signer(), $config->signingKey()),
         ];
 
-        if (config('caronte.ENFORCE_ISSUER')) {
-            $constraints[] = new IssuedBy((string) config('caronte.ISSUER_ID'));
+        if (config('caronte.enforce_issuer')) {
+            $constraints[] = new IssuedBy((string) config('caronte.issuer_id'));
         }
 
         if (!$validator->validate($token, ...$constraints)) {
@@ -158,7 +152,7 @@ class CaronteToken
     {
         $appId = (string) $token->claims()->get('app_id');
 
-        if ($appId !== ApplicationToken::appId()) {
+        if ($appId !== CaronteApplicationToken::appId()) {
             throw new UnprocessableEntityException('Token application does not match the configured Caronte application.');
         }
     }

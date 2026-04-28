@@ -20,7 +20,7 @@ Only the following variables **must** be present in the host application's `.env
 ```dotenv
 # ── Required ────────────────────────────────────────────────────────────────
 CARONTE_URL=https://your-caronte-server.example.com/
-CARONTE_APP_ID=your-app-id
+CARONTE_APP_CN=your-app-cn
 CARONTE_APP_SECRET=your-app-secret-minimum-32-characters-long
 
 # ── Optional overrides ───────────────────────────────────────────────────────
@@ -187,4 +187,4 @@ No queue workers or scheduler configuration is required by the package itself.
 
 ## Notes on Multi-Tenancy
 
-If `equidna/bee-hive` is configured in the host app, the `ResolveTenantContext` middleware (`caronte.tenant`) will set the active tenant ID from the `X-Tenant-Id` request header. The `TenantContextResolver` (`src/Support/TenantContextResolver.php`) falls back to the authenticated user's `id_tenant` JWT claim if no header is present.
+If `equidna/bee-hive` is configured in the host app, the `caronte.application` middleware will set the active tenant ID from the authenticated user or the `X-Tenant-Id` request header. Use `caronte.application:tenant_required` for routes that must reject requests without tenant context. Downstream Caronte API calls read the tenant from BeeHive's `TenantContext`.
