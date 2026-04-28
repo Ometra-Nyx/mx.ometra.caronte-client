@@ -7,10 +7,11 @@ use Exception;
 use Lcobucci\JWT\Token\Plain;
 use Ometra\Caronte\Exceptions\TenantMissingException;
 use Ometra\Caronte\Models\CaronteUser;
-use Ometra\Caronte\Support\RequestContext;
+use Ometra\Caronte\CaronteUserToken;
+use Ometra\Caronte\Support\RouteMode;
 use stdClass;
 
-class Caronte
+final class Caronte
 {
     private bool $newToken = false;
 
@@ -33,7 +34,7 @@ class Caronte
             throw new UnauthorizedException('Token not found');
         }
 
-        return CaronteToken::validateToken($token);
+        return CaronteUserToken::validateToken($token);
     }
 
     public function getUser(): stdClass
@@ -77,7 +78,7 @@ class Caronte
             return;
         }
 
-        request()->session()->put((string) config('caronte.SESSION_KEY', 'caronte.user_token'), $token);
+        request()->session()->put((string) config('caronte.session_key', 'caronte.user_token'), $token);
     }
 
     public function clearToken(): void
@@ -86,7 +87,7 @@ class Caronte
             return;
         }
 
-        request()->session()->forget((string) config('caronte.SESSION_KEY', 'caronte.user_token'));
+        request()->session()->forget((string) config('caronte.session_key', 'caronte.user_token'));
     }
 
     public function setTokenWasExchanged(): void
@@ -144,7 +145,7 @@ class Caronte
                     ],
                     [
                         'value' => $item->value ?? null,
-                        'scope' => $item->scope ?? \Ometra\Caronte\Support\ApplicationToken::appId(),
+                        'scope' => $item->scope ?? \Ometra\Caronte\Support\CaronteApplicationToken::appId(),
                     ]
                 );
             }
@@ -155,7 +156,7 @@ class Caronte
 
     private function rawToken(): ?string
     {
-        if (RequestContext::isApi()) {
+        if (RouteMode::wantsJson()) {
             return request()->bearerToken();
         }
 
@@ -163,6 +164,6 @@ class Caronte
             return null;
         }
 
-        return request()->session()->get((string) config('caronte.SESSION_KEY', 'caronte.user_token'));
+        return request()->session()->get((string) config('caronte.session_key', 'caronte.user_token'));
     }
 }

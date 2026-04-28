@@ -1,81 +1,88 @@
-# Release v2.1.0 "Sentinel"
+# Release v3.0.0 "Archon"
 
-**Release date:** 2026-04-27  
-**Package:** `ometra/caronte-client`  
-**Branch:** `dev` → `main`
+> **Release date:** 2026-04-28  
+> **Type:** Major — contains breaking changes. See [BREAKING_CHANGES.md](BREAKING_CHANGES.md) for migration guidance.
 
 ---
 
 ## Summary
 
-Sentinel is a significant feature release that hardens security defaults, introduces a server-to-server authentication layer, delivers a fully rebuilt CLI command suite, and ships the first comprehensive documentation set for the package.
+v3.0.0 "Archon" is a focused consolidation release that sharpens every public surface of the Caronte Client package: class names are now consistently prefixed, the middleware stack is simplified from four concerns down to three, legacy wrapper classes are removed in favour of direct API clients, and the UI layer ships with a full default stylesheet and branding system so host applications need less boilerplate to look polished.
 
-The most visible security change is that **JWT issuer validation is now on by default**. Combined with the new independent `CARONTE_TLS_VERIFY` flag and two new middleware guards (`caronte.application`, `caronte.tenant`), this release lives up to its codename: the package now actively watches every request at the perimeter.
+The codename _Archon_ (ἄρχων — chief magistrate of an ancient Greek city-state) reflects the package's core responsibility: governing identity, enforcing access rules, and brokering authentication across distributed Laravel applications with clarity and authority.
 
 ---
 
 ## Highlights
 
-- **Security by default** — JWT issuer validation is enabled (`CARONTE_ENFORCE_ISSUER=true`) out of the box, closing a token-forgery risk present in prior versions.
-- **Independent TLS control** — `CARONTE_TLS_VERIFY` decouples certificate verification from the plain-HTTP allowance flag.
-- **Application & tenant middleware** — `caronte.application` and `caronte.tenant` provide a clean, documented interface for server-to-server API routes.
-- **Rebuilt CLI** — seven focused Artisan commands replace the previous monolithic management commands; all support interactive prompts and tenant scoping.
-- **Full documentation suite** — nine reference documents added under `doc/`, covering deployment, API, routes, commands, tests, architecture diagrams, monitoring, business logic, and open questions.
-- **Comprehensive test coverage** — nine Feature tests validate routes, middleware, auth flows, management UI, and command behaviour.
-- **BeeHive tenancy integration** — models and migrations now carry `id_tenant`; `TenantContextResolver` resolves tenant from three sources with a documented fallback chain.
+- **Unified naming convention** — all core classes now carry the `Caronte` prefix; middleware aliases follow `ValidateUser*` / `Resolve*` patterns.
+- **Middleware consolidation** — `ResolveApplicationToken` + `ResolveTenantContext` collapsed into a single `ResolveApplicationContext` middleware.
+- **`CARONTE_APP_ID` → `CARONTE_APP_CN`** — environment variable renamed to match the Caronte server's "Common Name" terminology.
+- **`AuthApi` extracted** — authentication calls now live in a dedicated `AuthApi` class rather than being scattered across controllers.
+- **Default UI styles shipped** — `base.blade.php` now includes a comprehensive CSS foundation; auth and management views work out-of-the-box without host-app styling.
+- **Branding via env** — six `CARONTE_UI_*` variables let you customise app name, headline, logo URL, accent colour, and support email without publishing views.
+- **Configurable notification senders** — `two_factor_sender` and `password_recovery_sender` are now resolved from `config('caronte.notifications')`, making it trivial to swap transports.
+- **Dependency constraint relaxed** — `equidna/bee-hive` now accepts `>=2.0` instead of `^2.0`, reducing lockfile friction for projects on future minor releases.
 
 ---
 
 ## Added
 
-- `CARONTE_TLS_VERIFY` configuration key.
-- `caronte.application` middleware alias (`ResolveApplicationToken`).
-- `caronte.tenant` middleware alias (`ResolveTenantContext`).
-- Support classes: `CaronteHttpClient`, `ApplicationToken`, `CaronteResponse`, `ConfiguredRoles`, `RequestContext`, `TenantContextResolver`.
-- `CaronteApplicationContext` HTTP context class.
-- `CaronteTenantResolver` for BeeHive.
-- `CaronteApiException` exception class.
-- `SendsPasswordRecovery` / `SendsTwoFactorChallenge` contracts.
-- `PasswordRecoveryMail` / `TwoFactorChallengeMail` mailables.
-- `LaravelPasswordRecoverySender` / `LaravelTwoFactorChallengeSender` notification senders.
-- New Artisan command suite: `caronte:admin`, `caronte:roles:sync`, `caronte:users:list`, `caronte:users:create`, `caronte:users:update`, `caronte:users:delete`, `caronte:users:roles:sync`.
-- Management UI user-detail view (Blade + Inertia).
-- `id_tenant` column in `users_table` migration.
-- `doc/` documentation suite (9 files).
-- 9 Feature tests.
-- `.env.example`.
+- `AuthApi` class — all authentication-related Caronte server calls in one place.
+- `CaronteApiClient` — base API client replacing the fragmented `BaseApiClient`/`BaseHttpClient` hierarchy.
+- `CaronteServiceClient` — renamed service client extending `CaronteHttpClient` (`Support` namespace).
+- `BindsTenantContext` console concern — Artisan commands that need a tenant context use this instead of the removed `GuardsManagement`.
+- `ResolveApplicationContext` middleware — single middleware replacing `ResolveApplicationToken` + `ResolveTenantContext`.
+- `RouteMode` support class — enum-like value object for route registration modes.
+- `resources/views/layouts/base.blade.php` — default layout with a full CSS design system (colour palette, typography, forms, buttons, responsive grid).
+- Default `$branding` variable injected into all package views (auth + management).
+- `CARONTE_UI_APP_NAME`, `CARONTE_UI_HEADLINE`, `CARONTE_UI_SUBHEADLINE`, `CARONTE_UI_SUPPORT_EMAIL`, `CARONTE_UI_LOGO_URL`, `CARONTE_UI_ACCENT` env variables.
+- Configurable notification senders: `config('caronte.notifications.two_factor_sender')` and `config('caronte.notifications.password_recovery_sender')`.
+- Flash/messages partial rewritten with error deduplication and unified flash+validation rendering.
+- `_gen_docs.py` documentation generator for the `doc/` suite.
+- Feature tests: view rendering without explicit branding, mailables with string expiration values, flash partial deduplication.
 
 ## Changed
 
-- **`CARONTE_ENFORCE_ISSUER` now defaults to `true`** (see `BREAKING_CHANGES.md`).
-- Routes, controllers, API clients, middleware, and service provider all refactored for consistency.
-- `ValidateSession` forwards renewed tokens via `X-User-Token` response header.
-- `ManagementController@dashboard()` adds pagination.
-- CSS, Blade views, and Inertia JSX pages overhauled.
-- `README.md` fully overhauled.
+- `equidna/bee-hive` constraint: `^2.0` → `>=2.0`.
+- Version field removed from `composer.json` (managed by Git tags).
+- `AuthController` refactored to delegate to `AuthApi`.
+- `CaronteServiceProvider` updated: registers `CaronteApiClient` singleton, new middleware aliases, `BindsTenantContext`.
+- All Artisan command classes updated to use `BindsTenantContext`.
+- Documentation suite (`doc/`) fully regenerated.
+- `README.md` restructured for clarity.
 
 ## Removed
 
-- `CaronteCommand` base class.
-- Monolithic `ManagementRoles` and `ManagementUsers` command classes.
-- Individual legacy commands: `CreateRole`, `DeleteRole`, `ShowRoles`, `UpdateRole`, `AttachRoles`, `DeleteRolesUser`, `ShowRolesByUser`.
-- Legacy smoke tests: `RoutesSmokeTest`, `PublishCommandsTest`.
+- `CaronteRequest`, `CaronteRoleManager`, `BaseApiClient`.
+- `ResolveApplicationToken`, `ResolveTenantContext` middleware.
+- `GuardsManagement` console concern.
+- `RequestContext`, `TenantContextResolver` support classes.
+- `ManagementCaronte` command class.
+- Version field from `composer.json`.
 
-## Security
+## Breaking Changes
 
-- JWT issuer claim validation is now enforced by default, eliminating a class of token-forgery risk present in earlier versions.
+See [BREAKING_CHANGES.md](BREAKING_CHANGES.md) for complete migration steps.
+
+| Area           | Before                                             | After                             |
+| -------------- | -------------------------------------------------- | --------------------------------- |
+| Env variable   | `CARONTE_APP_ID`                                   | `CARONTE_APP_CN`                  |
+| Config key     | `config('caronte.app_id')`                         | `config('caronte.app_cn')`        |
+| Token class    | `CaronteToken`                                     | `CaronteUserToken`                |
+| Service client | `ServiceClient`                                    | `CaronteServiceClient`            |
+| HTTP client NS | `Api\CaronteHttpClient`                            | `Support\CaronteHttpClient`       |
+| App token NS   | `Support\ApplicationToken`                         | `Support\CaronteApplicationToken` |
+| Middleware     | `ValidateSession`                                  | `ValidateUserToken`               |
+| Middleware     | `ValidateRoles`                                    | `ValidateUserRoles`               |
+| Middleware     | `ResolveApplicationToken` + `ResolveTenantContext` | `ResolveApplicationContext`       |
 
 ---
 
-## Migration
+## Full Changelog
 
-Upgrading from v2.0.0? Review [`BREAKING_CHANGES.md`](BREAKING_CHANGES.md) for:
+See [CHANGELOG.md](CHANGELOG.md) for the complete project history.
 
-1. **Issuer validation default change** — set `CARONTE_ISSUER_ID` or opt out explicitly.
-2. **Command signatures changed** — update any scripts referencing removed commands.
+## Migration Guide
 
----
-
-## Full History
-
-See [`CHANGELOG.md`](CHANGELOG.md) for the complete project history.
+See [BREAKING_CHANGES.md](BREAKING_CHANGES.md) for step-by-step migration instructions including before/after code samples.

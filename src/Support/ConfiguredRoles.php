@@ -26,7 +26,7 @@ class ConfiguredRoles
 
         return array_values(array_map(
             function (array $role): array {
-                $role['uri_applicationRole'] = sha1(ApplicationToken::appId() . $role['name']);
+                $role['uri_applicationRole'] = sha1(CaronteApplicationToken::appId() . $role['name']);
 
                 return $role;
             },
@@ -151,6 +151,6 @@ class ConfiguredRoles
 
     private static function defaultDescription(string $name): string
     {
-        return ucfirst(str_replace(['_', '-'], ' ', $name));
+        return ucfirst(str_replace(['_', '-', '.'], ' ', $name));
     }
 }

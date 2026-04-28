@@ -11,13 +11,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - No changes yet.
 
+## [3.0.0] - 2026-04-28 "Archon"
+
+### Breaking Changes
+
+See `BREAKING_CHANGES.md` for full migration guidance.
+
+- `CARONTE_APP_ID` environment variable renamed to `CARONTE_APP_CN` — update `.env` and all deployment configs.
+- Config keys normalised to `lower_snake_case`: `app_id` → `app_cn`, `ISSUER_ID` → `issuer_id` — update any code that reads `config('caronte.*')` directly.
+- `CaronteToken` class renamed to `CaronteUserToken` — update all imports and type hints.
+- `ServiceClient` class renamed to `CaronteServiceClient` — update all imports.
+- `CaronteHttpClient` namespace moved from `Ometra\Caronte\Api` to `Ometra\Caronte\Support` — update imports.
+- `ApplicationToken` renamed to `CaronteApplicationToken` and moved to `Ometra\Caronte\Support` — update imports.
+- Middleware `ValidateSession` renamed to `ValidateUserToken` — update `$middlewareAliases` and route groups.
+- Middleware `ValidateRoles` renamed to `ValidateUserRoles` — update `$middlewareAliases` and route groups.
+- Middleware `ResolveApplicationToken` and `ResolveTenantContext` removed — replace with `ResolveApplicationContext`.
+- `CaronteRequest` class removed — use `CaronteHttpClient` (`Support` namespace) directly.
+- `CaronteRoleManager` class removed — use `RoleApi` directly.
+- `ManagementCaronte` command removed — the `caronte:admin` TUI menu remains as the interactive entry point.
+- `GuardsManagement` console concern removed — use `BindsTenantContext` for commands needing tenant context.
+- Support classes `RequestContext` and `TenantContextResolver` removed — functionality absorbed into `ResolveApplicationContext`.
+- `BaseApiClient` removed — extend `CaronteApiClient` instead.
+
+### Added
+
+- `AuthApi` — dedicated API class encapsulating all authentication-related Caronte server calls.
+- `CaronteApiClient` — base API client for Caronte server communication, replacing the fragmented `BaseApiClient`/`BaseHttpClient` hierarchy.
+- `CaronteServiceClient` — renamed and promoted service client extending `CaronteHttpClient`.
+- `BindsTenantContext` console concern — used by commands that require an active tenant context.
+- `ResolveApplicationContext` middleware — unified middleware replacing the previous `ResolveApplicationToken` + `ResolveTenantContext` pair.
+- `RouteMode` support class — enum-like value object controlling route registration modes.
+- `resources/views/layouts/base.blade.php` — new default base layout shipping comprehensive UI CSS: color palette, typography, form and button styles, responsive container.
+- Default `$branding` variable injected into all auth and management views — allows host apps to customise the UI without publishing views.
+- Configurable notification senders via `config('caronte.notifications')`: `two_factor_sender` and `password_recovery_sender` can now be overridden per-app.
+- `CARONTE_UI_*` environment variables for branding customisation: `CARONTE_UI_APP_NAME`, `CARONTE_UI_HEADLINE`, `CARONTE_UI_SUBHEADLINE`, `CARONTE_UI_SUPPORT_EMAIL`, `CARONTE_UI_LOGO_URL`, `CARONTE_UI_ACCENT`.
+- Flash/messages partial (`partials/messages.blade.php`) — full rewrite with error deduplication and unified flash+validation error rendering.
+- `_gen_docs.py` — documentation generation script for maintaining the `doc/` suite.
+- Feature tests: view rendering without explicit branding, mailables with string expiration values, flash partial deduplication.
+
+### Changed
+
+- `equidna/bee-hive` constraint relaxed from `^2.0` to `>=2.0` — allows projects on future minor/patch BeeHive releases without requiring a Caronte bump.
+- Version field removed from `composer.json` — version authority delegated entirely to Git tags.
+- `AuthController` significantly refactored for clarity and alignment with `AuthApi`.
+- `CaronteServiceProvider` updated to register `CaronteApiClient` singleton, new middleware aliases, and `BindsTenantContext` concern.
+- All Artisan command classes updated to use `BindsTenantContext` in place of `GuardsManagement`.
+- Documentation suite (`doc/`) fully regenerated with `_gen_docs.py`; all guides updated to reflect v3 class names, middleware names, and config keys.
+- `README.md` restructured for clearer quick-start, configuration reference, middleware reference, and architecture summary.
+
+### Removed
+
+- `CaronteRequest` legacy HTTP wrapper.
+- `CaronteRoleManager` orchestrator class (replaced by direct `RoleApi` usage).
+- `ManagementCaronte` interactive command class (the `caronte:admin` command is retained but directly implemented).
+- `GuardsManagement` console concern.
+- `RequestContext` support class.
+- `TenantContextResolver` support class.
+- `BaseApiClient` abstract class.
+- `ResolveApplicationToken` middleware.
+- `ResolveTenantContext` middleware.
+- `RELEASE_NOTES.md` from version control (generated fresh per release).
+
 ## [2.1.0] - 2026-04-27 "Sentinel"
 
 ### Added
 
 - `CARONTE_TLS_VERIFY` configuration option: TLS certificate verification can now be toggled independently from `CARONTE_ALLOW_HTTP_REQUESTS`.
-- `caronte.application` middleware alias (`ResolveApplicationToken`): validates `X-Application-Token` header for server-to-server routes and binds `CaronteApplicationContext`.
-- `caronte.tenant` middleware alias (`ResolveTenantContext`): resolves tenant from `X-Tenant-Id` header (or JWT claim fallback) and sets `equidna/bee-hive` `TenantContext`.
+- `caronte.application` middleware alias (`ResolveApplicationContext`): validates `X-Application-Token` header for server-to-server routes, binds `CaronteApplicationContext`, and supports `tenant_required` mode.
 - `CaronteHttpClient` — dedicated HTTP client wrapping auth and application requests with proper headers.
 - `ApplicationToken` support class for generating and matching application tokens (`base64(sha1(APP_ID) + ":" + APP_SECRET)`).
 - `CaronteResponse` support class standardising the API response envelope shape.

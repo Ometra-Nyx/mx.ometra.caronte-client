@@ -3,7 +3,7 @@
 namespace Ometra\Caronte\Helpers;
 
 use Ometra\Caronte\Facades\Caronte;
-use Ometra\Caronte\Support\ApplicationToken;
+use Ometra\Caronte\Support\CaronteApplicationToken;
 
 class PermissionHelper
 {
@@ -15,7 +15,7 @@ class PermissionHelper
         return $roles->contains(function ($role): bool {
             $roleAppId = $role->uri_application ?? $role->app_id ?? null;
 
-            return $roleAppId === null || $roleAppId === ApplicationToken::appId();
+            return $roleAppId === null || $roleAppId === CaronteApplicationToken::appId();
         });
     }
 
@@ -36,7 +36,7 @@ class PermissionHelper
             $roleAppId = $userRole->uri_application ?? $userRole->app_id ?? null;
 
             return in_array($userRole->name ?? null, $requiredRoles, true)
-                && ($roleAppId === null || $roleAppId === ApplicationToken::appId());
+                && ($roleAppId === null || $roleAppId === CaronteApplicationToken::appId());
         });
     }
 }

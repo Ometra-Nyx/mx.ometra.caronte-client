@@ -4,11 +4,12 @@ namespace Tests\Feature;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Equidna\BeeHive\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Ometra\Caronte\Http\Context\CaronteApplicationContext;
-use Ometra\Caronte\Support\ApplicationToken;
+use Ometra\Caronte\Support\CaronteApplicationContext;
+use Ometra\Caronte\Support\CaronteApplicationToken;
 use Tests\TestCase;
 
 class MiddlewareBehaviorTest extends TestCase
@@ -17,18 +18,30 @@ class MiddlewareBehaviorTest extends TestCase
     {
         parent::setUp();
 
-        Route::middleware(['caronte.application', 'caronte.tenant'])
+        Route::middleware(['caronte.application:tenant_required'])
             ->get('/api/_caronte/application-check', fn() => response()->json(['ok' => true]));
 
-        Route::middleware(['caronte.application', 'caronte.tenant'])
+        Route::middleware(['caronte.application:tenant_required'])
             ->get('/api/_caronte/context-check', function (Request $request) {
                 /** @var CaronteApplicationContext $context */
                 $context = app(CaronteApplicationContext::class);
 
                 return response()->json([
-                    'tenant_attribute' => $request->attributes->get('tenant_id'),
-                    'tenant_context' => $context->tenantId,
+                    'tenant_context' => app(TenantContext::class)->get(),
                     'app_id' => $context->appId,
+                ]);
+            });
+
+        Route::middleware(['caronte.application'])
+            ->get('/api/_caronte/application-only-check', function () {
+                /** @var CaronteApplicationContext $context */
+                $context = app(CaronteApplicationContext::class);
+
+                return response()->json([
+                    'app_id' => $context->appId,
+                    'tenant_context' => app()->bound(TenantContext::class)
+                        ? app(TenantContext::class)->get()
+                        : null,
                 ]);
             });
 
@@ -39,31 +52,53 @@ class MiddlewareBehaviorTest extends TestCase
             ->get('/api/_caronte/role-check', fn() => response()->json(['ok' => true]));
     }
 
-    public function test_application_and_tenant_middlewares_require_the_expected_headers(): void
+    public function test_application_middleware_requires_tenant_when_requested(): void
     {
         $this->getJson('/api/_caronte/application-check')
             ->assertStatus(401);
 
         $this->getJson('/api/_caronte/application-check', [
-            'X-Application-Token' => ApplicationToken::make(),
+            'X-Application-Token' => CaronteApplicationToken::make(),
         ])->assertStatus(400);
 
         $this->getJson('/api/_caronte/application-check', [
-            'X-Application-Token' => ApplicationToken::make(),
+            'X-Application-Token' => CaronteApplicationToken::make(),
             'X-Tenant-Id' => 'tenant-1',
         ])->assertOk();
     }
 
-    public function test_tenant_middleware_binds_tenant_context_for_the_request_lifecycle(): void
+    public function test_application_middleware_accepts_optional_tenant_context(): void
+    {
+        $this->getJson('/api/_caronte/application-only-check', [
+            'X-Application-Token' => CaronteApplicationToken::make(),
+        ])
+            ->assertOk()
+            ->assertJsonPath('app_id', CaronteApplicationToken::appId())
+            ->assertJsonPath('tenant_context', null);
+    }
+
+    public function test_application_middleware_binds_tenant_context_for_the_request_lifecycle(): void
     {
         $this->getJson('/api/_caronte/context-check', [
-            'X-Application-Token' => ApplicationToken::make(),
+            'X-Application-Token' => CaronteApplicationToken::make(),
             'X-Tenant-Id' => 'tenant-1',
         ])
             ->assertOk()
-            ->assertJsonPath('tenant_attribute', 'tenant-1')
             ->assertJsonPath('tenant_context', 'tenant-1')
-            ->assertJsonPath('app_id', ApplicationToken::appId());
+            ->assertJsonPath('app_id', CaronteApplicationToken::appId());
+    }
+
+    public function test_application_middleware_rejects_header_that_overrides_authenticated_tenant(): void
+    {
+        $token = $this->makeToken();
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->getJson('/api/_caronte/context-check', [
+                'X-Application-Token' => CaronteApplicationToken::make(),
+                'X-Tenant-Id' => 'other-tenant',
+            ])
+            ->assertStatus(403)
+            ->assertJsonPath('message', 'Tenant override is not allowed.');
     }
 
     public function test_session_middleware_exchanges_expired_api_tokens_and_returns_the_refreshed_header(): void
@@ -99,8 +134,8 @@ class MiddlewareBehaviorTest extends TestCase
             'roles' => [
                 [
                     'name' => 'rootless',
-                    'app_id' => ApplicationToken::appId(),
-                    'uri_applicationRole' => sha1(ApplicationToken::appId() . 'rootless'),
+                    'app_id' => CaronteApplicationToken::appId(),
+                    'uri_applicationRole' => sha1(CaronteApplicationToken::appId() . 'rootless'),
                 ],
             ],
             'metadata' => [],

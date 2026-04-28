@@ -2,11 +2,11 @@
 
 namespace Ometra\Caronte\Support;
 
-class ApplicationToken
+class CaronteApplicationToken
 {
     public static function cn(): string
     {
-        return strtolower(trim((string) config('caronte.APP_ID')));
+        return strtolower(trim((string) config('caronte.app_cn')));
     }
 
     public static function appId(): string
@@ -16,7 +16,7 @@ class ApplicationToken
 
     public static function make(): string
     {
-        return base64_encode(static::appId() . ':' . (string) config('caronte.APP_SECRET'));
+        return base64_encode(static::appId() . ':' . (string) config('caronte.app_secret'));
     }
 
     public static function matches(?string $token): bool

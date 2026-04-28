@@ -4,11 +4,11 @@ namespace Ometra\Caronte\Console\Commands\Users;
 
 use Illuminate\Console\Command;
 use Ometra\Caronte\Api\ClientApi;
-use Ometra\Caronte\Console\Concerns\GuardsManagement;
+use Ometra\Caronte\Console\Concerns\BindsTenantContext;
 
 class UpdateUser extends Command
 {
-    use GuardsManagement;
+    use BindsTenantContext;
 
     protected $signature = 'caronte:users:update
         {uri_user? : Caronte user URI}
@@ -19,10 +19,6 @@ class UpdateUser extends Command
 
     public function handle(): int
     {
-        if (!$this->ensureManagementEnabled()) {
-            return self::FAILURE;
-        }
-
         $uriUser = trim((string) ($this->argument('uri_user') ?: $this->ask('User URI')));
         $name = trim((string) ($this->option('name') ?: $this->ask('New display name')));
 
@@ -33,7 +29,9 @@ class UpdateUser extends Command
         }
 
         try {
-            $response = ClientApi::updateUser($uriUser, ['name' => $name], $this->resolveTenant());
+            $this->bindTenantContextFromOption();
+
+            $response = ClientApi::updateUser($uriUser, ['name' => $name]);
             $this->info($response['message']);
 
             return self::SUCCESS;
@@ -42,20 +40,5 @@ class UpdateUser extends Command
 
             return self::FAILURE;
         }
-    }
-
-    private function resolveTenant(): string
-    {
-        $tenant = trim((string) $this->option('tenant'));
-
-        if ($tenant === '') {
-            $tenant = trim((string) $this->ask('Tenant identifier'));
-        }
-
-        if ($tenant === '') {
-            throw new \RuntimeException('The --tenant option is required for user management commands.');
-        }
-
-        return $tenant;
     }
 }

@@ -8,7 +8,7 @@ This is a **Laravel package** (not a standalone project) for distributed JWT aut
 
 - **No local caching/staging**: All data fetched fresh from server via API
 - **Dual authentication**: User tokens (JWT for end-users) + App tokens (for server-to-server API calls)
-- **Minimal .env pollution**: Only 3 secrets required (`CARONTE_URL`, `CARONTE_APP_ID`, `CARONTE_APP_SECRET`)
+- **Minimal .env pollution**: Only 3 secrets required (`CARONTE_URL`, `CARONTE_APP_CN`, `CARONTE_APP_SECRET`)
 - **Configurable table prefix**: Database tables use `config('caronte.table_prefix')` (default: ``) for multi-tenant support
 
 ## Core Components & Data Flow
@@ -16,22 +16,22 @@ This is a **Laravel package** (not a standalone project) for distributed JWT aut
 ### 1. Authentication Flow (User Tokens)
 
 ```
-User → Middleware (ValidateSession) → Caronte::getToken() → JWT validation → CaronteToken::validateToken()
+User → Middleware (ValidateUserToken) → Caronte::getToken() → JWT validation → CaronteToken::validateToken()
                                     ↓ (if expired)
                                  Token renewal → Save to cookie/storage
 ```
 
 - `Caronte.php`: Main facade, manages user JWT tokens (stored in cookies/local storage)
 - `CaronteToken.php`: JWT parsing/validation (uses `lcobucci/jwt`)
-- `Http/Middleware/ValidateSession.php`: Authenticates requests, auto-renews expired tokens
-- `Http/Middleware/ValidateRoles.php`: Checks user has required roles (always includes `root`)
+- `Http/Middleware/ValidateUserToken.php`: Authenticates requests, auto-renews expired tokens
+- `Http/Middleware/ValidateUserRoles.php`: Checks user has required roles (always includes `root`)
 
 ### 2. Server Communication (App Tokens)
 
 ```
 Command/Controller → CaronteRoleManager → RoleApiClient → HTTP request to Caronte server
                                         ↓
-                            App token: base64(sha1(APP_ID) + APP_SECRET)
+                            App token: base64(sha1(app_cn) + app_secret)
 ```
 
 - `CaronteRoleManager`: Orchestrates role CRUD, generates app tokens
@@ -56,7 +56,7 @@ Controllers are **domain-separated** (not monolithic):
 
 ### Configuration Rules
 
-1. **NEVER add non-secret config to `.env.example`**: Only `CARONTE_URL`, `CARONTE_APP_ID`, `CARONTE_APP_SECRET`, optionally `CARONTE_ISSUER_ID`
+1. **NEVER add non-secret config to `.env.example`**: Only `CARONTE_URL`, `CARONTE_APP_CN`, `CARONTE_APP_SECRET`, optionally `CARONTE_ISSUER_ID`
 2. **All feature flags live in `config/caronte.php`** with hardcoded defaults (no `env()` calls except for secrets)
 3. **Table prefix pattern**: Models set table name in `__construct()`:
    ```php
@@ -69,7 +69,7 @@ Controllers are **domain-separated** (not monolithic):
 ### Naming Conventions
 
 - Classes: `Caronte*` prefix for main classes (`CaronteRoleManager`, `CaronteToken`, `CaronteUser`)
-- Middleware aliases: `Caronte.ValidateSession`, `Caronte.ValidateRoles`
+- Middleware aliases: `Caronte.ValidateUserToken`, `Caronte.ValidateUserRoles`
 - Commands: `caronte-client:*` prefix (e.g., `caronte-client:create-role`)
 - Publishable tags: `caronte:*` (e.g., `caronte:views`, `caronte:config`)
 
@@ -108,7 +108,7 @@ All commands extend `CaronteCommand` (base class with shared logic). Interactive
 2. **Forgetting table prefix**: Database queries must use models or manually prepend `config('caronte.table_prefix')`
 3. **Adding feature flags to `.env`**: They belong in `config/caronte.php` with defaults
 4. **Caching assumptions**: No local role/user caching exists - always fetches fresh from server
-5. **Middleware order**: `ValidateSession` must run before `ValidateRoles`
+5. **Middleware order**: `ValidateUserToken` must run before `ValidateUserRoles`
 
 ## Key Files Reference
 

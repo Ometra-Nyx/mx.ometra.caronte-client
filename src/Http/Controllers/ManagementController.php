@@ -8,7 +8,7 @@ use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Inertia\Response as InertiaResponse;
 use Ometra\Caronte\Api\ClientApi;
-use Ometra\Caronte\CaronteRoleManager;
+use Ometra\Caronte\Api\RoleApi;
 use Ometra\Caronte\Facades\Caronte;
 use Ometra\Caronte\Support\CaronteResponse;
 use Ometra\Caronte\Support\ConfiguredRoles;
@@ -23,7 +23,7 @@ class ManagementController extends BaseController
             $response = ClientApi::showUsers(search: $search, usersApp: true);
             $users = collect(is_array($response['data']) ? $response['data'] : []);
             $paginator = $this->paginateUsers($users, $request);
-            $preview = CaronteRoleManager::previewSync();
+            $preview = $this->previewRoleSync();
 
             return $this->toView('management.index', [
                 'branding' => $this->branding(),
@@ -47,7 +47,7 @@ class ManagementController extends BaseController
         } catch (\Exception $exception) {
             return CaronteResponse::handleException(
                 exception: $exception,
-                forwardUrl: (string) config('caronte.LOGIN_URL')
+                forwardUrl: (string) config('caronte.login_url')
             );
         }
     }
@@ -68,5 +68,40 @@ class ManagementController extends BaseController
                 'query' => $request->query(),
             ]
         );
+    }
+
+    /**
+     * @return array{configured: array<int, array{name: string, description: string, uri_applicationRole: string}>, remote: array<string, array<string, mixed>>, missing: array<int, string>, outdated: array<int, string>}
+     */
+    private function previewRoleSync(): array
+    {
+        $configured = ConfiguredRoles::all();
+        $response = RoleApi::showRoles();
+        $remoteRoles = is_array($response['data']) ? $response['data'] : [];
+        $remote = [];
+        $missing = [];
+        $outdated = [];
+
+        foreach ($remoteRoles as $role) {
+            if (!is_array($role) || !isset($role['name'])) {
+                continue;
+            }
+            $remote[(string) $role['name']] = $role;
+        }
+
+        foreach ($configured as $role) {
+            $remoteRole = $remote[$role['name']] ?? null;
+
+            if ($remoteRole === null) {
+                $missing[] = $role['name'];
+                continue;
+            }
+
+            if (($remoteRole['description'] ?? null) !== $role['description']) {
+                $outdated[] = $role['name'];
+            }
+        }
+
+        return compact('configured', 'remote', 'missing', 'outdated');
     }
 }

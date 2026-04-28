@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Support\Facades\Http;
-use Ometra\Caronte\Support\ApplicationToken;
+use Ometra\Caronte\Support\CaronteApplicationToken;
 use Tests\DisabledManagementTestCase;
 use Tests\TestCase;
 
@@ -44,7 +44,7 @@ class CommandBehaviorTest extends TestCase
         Http::assertSent(function ($request): bool {
             return $request->url() === 'https://caronte.test/api/applications/roles'
                 && $request->method() === 'PUT'
-                && $request->hasHeader('X-Application-Token', ApplicationToken::make())
+                && $request->hasHeader('X-Application-Token', CaronteApplicationToken::make())
                 && in_array('root', array_column($request['roles'], 'name'), true)
                 && in_array('admin', array_column($request['roles'], 'name'), true);
         });
@@ -68,7 +68,7 @@ class CommandBehaviorTest extends TestCase
 
         Http::assertSent(function ($request): bool {
             return str_starts_with($request->url(), 'https://caronte.test/api/users')
-                && $request->hasHeader('X-Application-Token', ApplicationToken::make())
+                && $request->hasHeader('X-Application-Token', CaronteApplicationToken::make())
                 && $request->hasHeader('X-Tenant-Id', 'tenant-1');
         });
     }
@@ -116,7 +116,7 @@ class CommandBehaviorTest extends TestCase
             return $request->url() === 'https://caronte.test/api/users/user-9/roles'
                 && $request->method() === 'PUT'
                 && $request->hasHeader('X-Tenant-Id', 'tenant-1')
-                && $request['roles'] === [sha1(ApplicationToken::appId() . 'admin')];
+                && $request['roles'] === [sha1(CaronteApplicationToken::appId() . 'admin')];
         });
     }
 }

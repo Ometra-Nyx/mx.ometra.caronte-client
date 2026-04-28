@@ -2,14 +2,14 @@
 
 namespace Ometra\Caronte\Api;
 
-class RoleApi extends BaseApiClient
+class RoleApi
 {
     /**
      * @return array{status: int, message: string, data: mixed, errors: array<int|string, mixed>}
      */
     public static function showRoles(): array
     {
-        return static::http()->applicationRequest(
+        return app(CaronteApiClient::class)->applicationRequest(
             method: 'get',
             endpoint: 'api/applications/roles'
         );
@@ -21,7 +21,7 @@ class RoleApi extends BaseApiClient
      */
     public static function syncRoles(array $roles): array
     {
-        return static::http()->applicationRequest(
+        return app(CaronteApiClient::class)->applicationRequest(
             method: 'put',
             endpoint: 'api/applications/roles',
             payload: [

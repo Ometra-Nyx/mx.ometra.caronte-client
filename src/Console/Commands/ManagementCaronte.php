@@ -3,22 +3,15 @@
 namespace Ometra\Caronte\Console\Commands;
 
 use Illuminate\Console\Command;
-use Ometra\Caronte\Console\Concerns\GuardsManagement;
 
 class ManagementCaronte extends Command
 {
-    use GuardsManagement;
-
     protected $signature = 'caronte:admin';
 
     protected $description = 'Interactive entry point for Caronte user management commands.';
 
     public function handle(): int
     {
-        if (!$this->ensureManagementEnabled()) {
-            return self::FAILURE;
-        }
-
         do {
             $selected = $this->choice('Choose an operation', [
                 'Sync configured roles',

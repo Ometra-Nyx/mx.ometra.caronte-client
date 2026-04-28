@@ -1,96 +1,136 @@
 # API Documentation
 
-## Overview
+This package is a **client** — it does not expose a REST API itself. This document describes:
 
-`ometra/caronte-client` is a **Laravel package** and does **not** expose its own `routes/api.php`. All HTTP routes registered by the package are **web routes** (session-based).
-
-Internal server-to-server communication is performed by the package **outbound** to the Caronte server using `Ometra\Caronte\Api\CaronteHttpClient` (`src/Api/CaronteHttpClient.php`). These are not public endpoints exposed by the host app.
-
-For all HTTP routes exposed to browsers, see [Routes Documentation](routes-documentation.md).
+1. The Caronte server endpoints this package calls (via `AuthApi`, `ClientApi`, `RoleApi`)
+2. The `CaronteServiceClient` public API for inter-service communication
+3. The `CaronteApplicationContext` middleware for receiving application tokens
 
 ---
 
-## Outbound Caronte Server API (Internal)
+## 1. Caronte Server Endpoints (Outgoing Calls)
 
-The package calls the following Caronte server endpoints. These are documented for developer reference when troubleshooting integration issues.
+All calls are made through three static proxy classes that delegate to `CaronteApiClient`.
 
-All requests include an `X-Application-Token` header computed as:
+### 1.1 Auth Endpoints — `AuthApi`
 
+> Base URL: `config('caronte.url')`  
+> Auth: Application Token header (`X-Application-Token`) for `applicationRequest`; user JWT for `authRequest`.
+
+| Method | Verb | Path | PHP call | Description |
+|---|---|---|---|---|
+| `login` | POST | `/api/auth/login` | `AuthApi::login(email, password, appCn?, tenant?)` | Password-based login |
+| `requestTwoFactor` | POST | `/api/auth/2fa/request` | `AuthApi::requestTwoFactor(email, tenant?)` | Request 2FA code |
+| `issueTwoFactor` | POST | `/api/auth/2fa/issue` | `AuthApi::issueTwoFactor(email, tenant?)` | Issue/resend 2FA challenge |
+| `consumeTwoFactor` | POST | `/api/auth/2fa/consume` | `AuthApi::consumeTwoFactor(email, code, tenant?)` | Submit 2FA code |
+| `exchange` | POST | `/api/auth/exchange` | `AuthApi::exchange(token)` | Exchange/renew a user JWT |
+| `requestPasswordRecovery` | POST | `/api/auth/password/request` | `AuthApi::requestPasswordRecovery(email, tenant?)` | Start password recovery |
+| `consumePasswordRecovery` | POST | `/api/auth/password/consume` | `AuthApi::consumePasswordRecovery(token, password)` | Complete password recovery |
+
+All methods return:
+
+```php
+array{
+    status:  int,           // HTTP status code
+    message: string,        // Human-readable message
+    data:    mixed,         // Payload (user object, token, etc.)
+    errors:  array|null,    // Validation errors
+}
 ```
-base64( sha1(APP_ID) + ":" + APP_SECRET )
-```
 
-### Authentication Endpoints
+### 1.2 User/Client Endpoints — `ClientApi`
 
-Handled by `Ometra\Caronte\Api\CaronteHttpClient::authRequest()` (`src/Api/CaronteHttpClient.php`).
+> Auth: Application Token (`X-Application-Token`) + optional `X-Tenant-Id`
 
-| Method | Path                                | Purpose                                     |
-| ------ | ----------------------------------- | ------------------------------------------- |
-| `POST` | `api/auth/login`                    | Authenticate with email + password, get JWT |
-| `POST` | `api/auth/2fa/issue`                | Request a 2FA token via email               |
-| `GET`  | `api/auth/2fa/{token}`              | Validate a 2FA token and receive a JWT      |
-| `POST` | `api/auth/exchange`                 | Exchange an expired JWT for a fresh one     |
-| `POST` | `api/auth/password/recover/request` | Initiate password recovery                  |
-| `GET`  | `api/auth/password/recover/{token}` | Validate a recovery token                   |
-| `POST` | `api/auth/password/recover/{token}` | Submit a new password                       |
+| Method | Verb | Path | Description |
+|---|---|---|---|
+| `showUsers(tenant?)` | GET | `/api/clients` | List all users for a tenant |
+| `createUser(data, tenant?)` | POST | `/api/clients` | Create a new user |
+| `showUser(uri, tenant?)` | GET | `/api/clients/{uri}` | Get a single user |
+| `updateUser(uri, data, tenant?)` | PUT | `/api/clients/{uri}` | Update user data |
+| `deleteUser(uri, tenant?)` | DELETE | `/api/clients/{uri}` | Delete a user |
+| `showUserRoles(uri, tenant?)` | GET | `/api/clients/{uri}/roles` | List roles assigned to a user |
+| `syncUserRoles(uri, roles, tenant?)` | PUT | `/api/clients/{uri}/roles` | Overwrite user role assignments |
+| `storeUserMetadata(uri, key, value, tenant?)` | POST | `/api/clients/{uri}/metadata` | Set a metadata key |
+| `deleteUserMetadata(uri, key, tenant?)` | DELETE | `/api/clients/{uri}/metadata/{key}` | Remove a metadata key |
 
-### Application (Management) Endpoints
+### 1.3 Role Endpoints — `RoleApi`
 
-Handled by `Ometra\Caronte\Api\CaronteHttpClient::applicationRequest()`. Also include `X-Tenant-Id` header when tenant context is available.
+> Auth: Application Token
 
-**Users**
+| Method | Verb | Path | Description |
+|---|---|---|---|
+| `showRoles()` | GET | `/api/applications/roles` | List all roles for this application |
+| `syncRoles(roles)` | PUT | `/api/applications/roles` | Overwrite application roles |
 
-| Method   | Path                         | Purpose                        |
-| -------- | ---------------------------- | ------------------------------ |
-| `GET`    | `api/users`                  | List users for the application |
-| `POST`   | `api/users`                  | Create a user                  |
-| `GET`    | `api/users/{uri_user}`       | Show a single user             |
-| `PUT`    | `api/users/{uri_user}`       | Update a user's name           |
-| `DELETE` | `api/users/{uri_user}`       | Delete a user                  |
-| `GET`    | `api/users/{uri_user}/roles` | List roles assigned to a user  |
-| `PUT`    | `api/users/{uri_user}/roles` | Sync roles assigned to a user  |
-
-**Roles**
-
-| Method | Path                     | Purpose                                   |
-| ------ | ------------------------ | ----------------------------------------- |
-| `GET`  | `api/applications/roles` | List roles registered for the application |
-| `PUT`  | `api/applications/roles` | Sync configured roles to the server       |
-
-### Standard Response Shape
-
-All methods in `Ometra\Caronte\Api\ClientApi` (`src/Api/ClientApi.php`) and `Ometra\Caronte\Api\RoleApi` (`src/Api/RoleApi.php`) return:
+`syncRoles` payload shape:
 
 ```php
 [
-    'status'  => int,                       // HTTP status code
-    'message' => string,                    // Human-readable message
-    'data'    => mixed,                     // Payload (array or null)
-    'errors'  => array<int|string, mixed>,  // Validation / error details
+    ['name' => 'admin',  'description' => 'Administrator'],
+    ['name' => 'editor', 'description' => 'Content editor'],
 ]
 ```
 
 ---
 
-## Inbound Application Token Verification
+## 2. Application Token Format
 
-The package also exposes middleware for routes in the **host application** that need to accept calls from the Caronte server or other trusted services:
+All server-to-server calls use an `X-Application-Token` header:
 
-- `caronte.application` → `Ometra\Caronte\Http\Middleware\ResolveApplicationToken` (`src/Http/Middleware/ResolveApplicationToken.php`)
-  - Expects `X-Application-Token` header.
-  - Validates the token against the configured `APP_ID` + `APP_SECRET`.
-  - On success, binds a `CaronteApplicationContext` instance into the service container.
-- `caronte.tenant` → `Ometra\Caronte\Http\Middleware\ResolveTenantContext` (`src/Http/Middleware/ResolveTenantContext.php`)
-  - Must follow `caronte.application`.
-  - Expects `X-Tenant-Id` header.
-  - Stores the tenant in `equidna/bee-hive`'s `TenantContext` and on the request attributes.
+```
+X-Application-Token: base64( sha1(lower(app_cn)) : app_secret )
+```
 
-### Example: Protecting an inbound server-to-server route
+Generated by `CaronteApplicationToken::make()`.
+
+---
+
+## 3. CaronteServiceClient (Inter-Service Communication)
+
+Use `CaronteServiceClient` when this host application needs to call **another** Caronte-protected service.
 
 ```php
-Route::middleware(['caronte.application', 'caronte.tenant'])
-    ->get('/internal/data', function (Request $request) {
-        $tenantId = $request->attributes->get('tenant_id');
-        // ...
-    });
+use Ometra\Caronte\CaronteServiceClient;
+
+// Same Caronte credentials (shares this app's token)
+$client = new CaronteServiceClient('https://service-b.example.com');
+
+// Different Caronte credentials
+$client = new CaronteServiceClient(
+    baseUrl:   'https://service-b.example.com',
+    appCn:     'service-b-cn',
+    appSecret: 'service-b-secret',
+);
+
+// Application-token request (no user context)
+$response = $client->applicationRequest('GET', 'api/resources', [], tenantId: 'tenant-1');
+
+// User-token request (forwards user JWT)
+$token    = Caronte::getToken();
+$response = $client->userRequest('POST', 'api/orders', $data, $token, tenantId: 'tenant-1');
 ```
+
+Response shape is the same normalised array as all other API methods.
+
+---
+
+## 4. Receiving Application Tokens (Incoming Calls)
+
+The `caronte.application` middleware validates the `X-Application-Token` header on routes that accept inter-service calls:
+
+```
+X-Application-Token: <base64 token>
+X-Tenant-Id: <optional tenant identifier>
+```
+
+On success it binds a `CaronteApplicationContext` instance into the IoC container:
+
+```php
+$ctx = app(CaronteApplicationContext::class);
+$ctx->appCn;             // Canonical name extracted from token
+$ctx->appId;             // sha1(lower(appCn))
+$ctx->applicationToken;  // Raw token string
+```
+
+When the middleware is used with the `tenant_required` argument, requests without an `X-Tenant-Id` header are rejected with `422`.
