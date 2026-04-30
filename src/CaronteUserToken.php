@@ -16,6 +16,8 @@ use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Ometra\Caronte\Api\AuthApi;
 use Ometra\Caronte\Exceptions\CaronteApiException;
 use Ometra\Caronte\Facades\Caronte;
+use Ometra\Caronte\Oidc\Base64Url;
+use Ometra\Caronte\Oidc\OidcTokenValidator;
 use Ometra\Caronte\Support\CaronteApplicationToken;
 use Ometra\Caronte\Support\RouteMode;
 use RuntimeException;
@@ -28,6 +30,10 @@ final class CaronteUserToken
 
     public static function validateToken(string $rawToken, bool $skipExchange = false): Plain
     {
+        if (static::shouldUseOidc($rawToken)) {
+            return app(OidcTokenValidator::class)->validate($rawToken);
+        }
+
         $token = static::decodeToken($rawToken);
 
         static::assertSignatureAndIssuer($token);
@@ -109,6 +115,29 @@ final class CaronteUserToken
         }
 
         return $token;
+    }
+
+    private static function shouldUseOidc(string $rawToken): bool
+    {
+        $mode = (string) config('caronte.auth_mode', 'legacy');
+
+        if ($mode === 'legacy') {
+            return false;
+        }
+
+        if ($mode === 'oidc') {
+            return true;
+        }
+
+        $parts = explode('.', $rawToken);
+
+        if (count($parts) !== 3) {
+            return false;
+        }
+
+        $header = json_decode((string) Base64Url::decode($parts[0]), true);
+
+        return is_array($header) && isset($header['kid']);
     }
 
     public static function getConfig(): Configuration

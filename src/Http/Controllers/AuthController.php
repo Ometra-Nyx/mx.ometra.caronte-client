@@ -3,6 +3,7 @@
 namespace Ometra\Caronte\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 use Inertia\Response as InertiaResponse;
 use Ometra\Caronte\Api\AuthApi;
@@ -18,8 +19,12 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends BaseController
 {
-    public function loginForm(Request $request): View|InertiaResponse
+    public function loginForm(Request $request): View|InertiaResponse|RedirectResponse
     {
+        if (config('caronte.auth_mode') === 'oidc') {
+            return redirect()->route('caronte.oidc.login');
+        }
+
         $view = config('caronte.use_2fa') ? 'auth.two-factor' : 'auth.login';
 
         return $this->toView($view, [
