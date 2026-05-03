@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Ometra\Caronte\Support\CaronteApplicationContext;
+use Ometra\Caronte\Support\CaronteApplicationAccessContext;
 use Ometra\Caronte\Support\CaronteApplicationToken;
 use Tests\TestCase;
 
@@ -50,6 +51,17 @@ class MiddlewareBehaviorTest extends TestCase
 
         Route::middleware(['caronte.session', 'caronte.roles:admin'])
             ->get('/api/_caronte/role-check', fn() => response()->json(['ok' => true]));
+
+        Route::middleware(['caronte.app-token', 'caronte.app-permissions:invoices.read'])
+            ->get('/api/_caronte/application-access-check', function () {
+                /** @var CaronteApplicationAccessContext $context */
+                $context = app(CaronteApplicationAccessContext::class);
+
+                return response()->json([
+                    'tenant_id' => $context->tenantId,
+                    'permissions' => $context->permissions,
+                ]);
+            });
     }
 
     public function test_application_middleware_requires_tenant_when_requested(): void
@@ -75,6 +87,23 @@ class MiddlewareBehaviorTest extends TestCase
             ->assertOk()
             ->assertJsonPath('app_id', CaronteApplicationToken::appId())
             ->assertJsonPath('tenant_context', null);
+    }
+
+    public function test_application_middleware_accepts_group_application_token(): void
+    {
+        config()->set('caronte.application_group_id', 'core-suite');
+        config()->set('caronte.application_group_secret', 'group-secret-with-minimum-length-32');
+
+        $this->getJson('/api/_caronte/application-only-check', [
+            'X-Application-Token' => CaronteApplicationToken::makeGroup(),
+        ])
+            ->assertOk()
+            ->assertJsonPath('app_id', CaronteApplicationToken::appId());
+
+        /** @var CaronteApplicationContext $context */
+        $context = app(CaronteApplicationContext::class);
+        $this->assertTrue($context->authenticatedAsGroup);
+        $this->assertSame('core-suite', $context->groupId);
     }
 
     public function test_application_middleware_binds_tenant_context_for_the_request_lifecycle(): void
@@ -143,6 +172,26 @@ class MiddlewareBehaviorTest extends TestCase
 
         $this->withHeader('Authorization', 'Bearer ' . $token)
             ->getJson('/api/_caronte/role-check')
+            ->assertStatus(403);
+    }
+
+    public function test_application_access_middleware_accepts_tokens_with_required_permission(): void
+    {
+        $token = $this->makeApplicationAccessToken(['invoices.read']);
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->getJson('/api/_caronte/application-access-check')
+            ->assertOk()
+            ->assertJsonPath('tenant_id', 'tenant-1')
+            ->assertJsonPath('permissions.0', 'invoices.read');
+    }
+
+    public function test_application_access_middleware_rejects_missing_permission(): void
+    {
+        $token = $this->makeApplicationAccessToken(['invoices.write']);
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->getJson('/api/_caronte/application-access-check')
             ->assertStatus(403);
     }
 }

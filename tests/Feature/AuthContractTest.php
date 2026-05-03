@@ -2,16 +2,21 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ViewErrorBag;
 use Illuminate\Support\MessageBag;
 use Ometra\Caronte\Api\CaronteApiClient;
+use Ometra\Caronte\Caronte;
+use Ometra\Caronte\CaronteUserToken;
 use Ometra\Caronte\Contracts\SendsPasswordRecovery;
 use Ometra\Caronte\Contracts\SendsTwoFactorChallenge;
 use Ometra\Caronte\Mail\PasswordRecoveryMail;
 use Ometra\Caronte\Mail\TwoFactorChallengeMail;
+use Ometra\Caronte\Models\CaronteUser;
 use Ometra\Caronte\Support\CaronteApplicationToken;
 use Tests\TestCase;
 
@@ -43,6 +48,30 @@ class AuthContractTest extends TestCase
                 && $request['email'] === 'root@example.com'
                 && $request['password'] === 'Password123!';
         });
+    }
+
+    public function test_local_user_sync_persists_token_tenant(): void
+    {
+        Schema::dropIfExists('Users');
+        Schema::create('Users', function (Blueprint $table): void {
+            $table->string('id_tenant', 64)->nullable()->index();
+            $table->string('uri_user', 40)->primary();
+            $table->string('name', 150);
+            $table->string('email', 150);
+        });
+
+        Caronte::updateUserData((object) [
+            'uri_user' => 'user-123',
+            'name' => 'Root User',
+            'email' => 'root@example.com',
+            'id_tenant' => 'tenant-1',
+            'metadata' => [],
+        ]);
+
+        $this->assertSame(
+            'tenant-1',
+            CaronteUser::withoutGlobalScopes()->whereKey('user-123')->value('id_tenant')
+        );
     }
 
     public function test_host_notification_delivery_uses_issue_endpoints_and_package_mailables(): void
@@ -190,6 +219,19 @@ class AuthContractTest extends TestCase
                 && !$request->hasHeader('X-Application-Token')
                 && $request->hasHeader('X-User-Token', $token);
         });
+    }
+
+    public function test_group_user_token_validates_with_group_secret_and_group_id(): void
+    {
+        config()->set('caronte.application_group_id', 'core-suite');
+        config()->set('caronte.application_group_secret', 'group-secret-with-minimum-length-32');
+
+        $token = $this->makeToken(group: true);
+        $parsed = CaronteUserToken::validateToken($token);
+
+        $this->assertSame('application_group', $parsed->claims()->get('token_audience'));
+        $this->assertSame('core-suite', $parsed->claims()->get('group_id'));
+        $this->assertSame(sha1('source-app'), $parsed->claims()->get('source_app_id'));
     }
 
     public function test_flash_partial_deduplicates_error_messages(): void

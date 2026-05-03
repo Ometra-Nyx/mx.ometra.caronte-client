@@ -53,6 +53,12 @@
    CARONTE_APP_SECRET=a-secret-at-least-32-characters-long
    ```
 
+   Apps that belong to an internal application group can also share user tokens and app-to-app credentials:
+   ```env
+   CARONTE_APPLICATION_GROUP_ID=core-suite
+   CARONTE_APPLICATION_GROUP_SECRET=a-group-secret-at-least-32-characters-long
+   ```
+
 4. **Run migrations** (creates local user cache tables)
    ```bash
    php artisan migrate
@@ -68,7 +74,23 @@
    php artisan caronte:roles:sync
    ```
 
-7. **Visit** the management UI at `/caronte/management` (default).
+7. **Declare API permissions** if external applications will consume your API:
+   ```php
+   'permissions' => [
+       'invoices.read' => 'Read invoices',
+       'invoices.write' => 'Write invoices',
+   ],
+   ```
+   ```bash
+   php artisan caronte:permissions:sync
+   ```
+
+8. **Protect external API routes** with application-token middleware:
+   ```php
+   Route::middleware(['caronte.app-token', 'caronte.app-permissions:invoices.read'])->get(...);
+   ```
+
+9. **Visit** the management UI at `/caronte/management` (default).
 
 See [Deployment Instructions](doc/deployment-instructions.md) for the full setup guide.
 

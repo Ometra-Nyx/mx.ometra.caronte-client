@@ -50,6 +50,34 @@ class CommandBehaviorTest extends TestCase
         });
     }
 
+    public function test_permissions_sync_command_normalizes_configured_permissions_and_calls_sync_endpoint(): void
+    {
+        config()->set('caronte.permissions', [
+            'invoices.read' => 'Read invoices',
+            ['permission' => 'invoices.write', 'description' => 'Write invoices'],
+        ]);
+
+        Http::fake([
+            'https://caronte.test/api/applications/permissions' => Http::response([
+                'status' => 200,
+                'message' => 'Application permissions retrieved',
+                'data' => ['permissions' => []],
+            ], 200),
+        ]);
+
+        $this->artisan('caronte:permissions:sync')
+            ->expectsOutput('Application permissions retrieved')
+            ->assertExitCode(0);
+
+        Http::assertSent(function ($request): bool {
+            return $request->url() === 'https://caronte.test/api/applications/permissions'
+                && $request->method() === 'PUT'
+                && $request->hasHeader('X-Application-Token', CaronteApplicationToken::make())
+                && in_array('invoices.read', array_column($request['permissions'], 'permission'), true)
+                && in_array('invoices.write', array_column($request['permissions'], 'permission'), true);
+        });
+    }
+
     public function test_user_list_command_requires_tenant_and_uses_new_endpoint_contract(): void
     {
         Http::fake([

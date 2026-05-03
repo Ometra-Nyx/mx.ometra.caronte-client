@@ -9,6 +9,8 @@ return [
     'url'        => env('CARONTE_URL', ''),
     'app_cn'     => env('CARONTE_APP_CN', ''),
     'app_secret' => env('CARONTE_APP_SECRET', ''),
+    'application_group_id' => env('CARONTE_APPLICATION_GROUP_ID', ''),
+    'application_group_secret' => env('CARONTE_APPLICATION_GROUP_SECRET', ''),
 
     /*
     |--------------------------------------------------------------------------
@@ -83,6 +85,15 @@ return [
     */
     'roles' => [
         'root' => 'Default super administrator role',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Application API Permissions
+    |--------------------------------------------------------------------------
+    */
+    'permissions' => [
+        // 'invoices.read' => 'Read invoices through this application API',
     ],
 
     /*
