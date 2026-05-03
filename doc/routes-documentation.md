@@ -63,3 +63,16 @@ Default `{mgmt_prefix}`: `caronte/management`
 - The `root` role is always treated as an access role regardless of `access_roles` configuration.
 - The management UI can render either Blade views or Inertia pages depending on `management.use_inertia`.
 - Views are loaded from `resources/views/vendor/caronte` if published, otherwise from the package.
+
+## Middleware Aliases
+
+The package also registers middleware aliases that can be used on host app routes:
+
+| Alias | Purpose |
+|---|---|
+| `caronte.session` | Validate user JWT from session or bearer token |
+| `caronte.roles:<role>` | Require user role; `root` is accepted |
+| `caronte.application` | Validate incoming `X-Application-Token` for app-to-app calls |
+| `caronte.application:tenant_required` | Same as above, but requires `X-Tenant-Id` |
+| `caronte.app-token` | Validate an `ApplicationToken` JWT for external API consumers |
+| `caronte.app-permissions:<permission>` | Require an application-token permission |

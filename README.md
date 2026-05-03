@@ -11,6 +11,7 @@
 - JWT user authentication (login, logout, 2FA, password recovery)
 - Automatic token validation and renewal on every request
 - Role-based access control tied to a central role registry
+- Application API permission declaration and application-token middleware
 - A ready-to-use management UI for users and roles
 - Server-to-server inter-app communication via application tokens
 
@@ -91,6 +92,13 @@
    ```
 
 9. **Visit** the management UI at `/caronte/management` (default).
+
+## Token Types
+
+- User JWTs authenticate humans and are checked by `caronte.session`.
+- App-to-app credentials use `X-Application-Token` and are checked by `caronte.application`.
+- Application-group credentials use `base64(group_id:application_group_secret)`.
+- `ApplicationTokens` authenticate external applications consuming this app's API and are checked by `caronte.app-token` plus `caronte.app-permissions:*`.
 
 See [Deployment Instructions](doc/deployment-instructions.md) for the full setup guide.
 
