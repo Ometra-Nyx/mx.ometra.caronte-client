@@ -2,12 +2,13 @@
 
 namespace Ometra\Caronte;
 
+use Equidna\BeeHive\Tenancy\TenantContext;
 use Equidna\Toolkit\Exceptions\UnauthorizedException;
 use Exception;
 use Lcobucci\JWT\Token\Plain;
+use Ometra\Caronte\CaronteUserToken;
 use Ometra\Caronte\Exceptions\TenantMissingException;
 use Ometra\Caronte\Models\CaronteUser;
-use Ometra\Caronte\CaronteUserToken;
 use Ometra\Caronte\Support\RouteMode;
 use stdClass;
 
@@ -40,7 +41,26 @@ final class Caronte
     public function getUser(): stdClass
     {
         try {
-            $user = json_decode((string) $this->getToken()->claims()->get('user'));
+            $token = $this->getToken();
+
+            if ($token->claims()->has('user')) {
+                $user = json_decode((string) $token->claims()->get('user'));
+            } else {
+                $subject = (string) $token->claims()->get('sub', '');
+                $subjectParts = explode(':', $subject, 2);
+                $user = (object) [
+                    'uri_user' => count($subjectParts) === 2 ? $subjectParts[1] : $subject,
+                    'name' => (string) $token->claims()->get('name', ''),
+                    'email' => (string) $token->claims()->get('email', ''),
+                    'tenant_id' => $token->claims()->get('tenant_id'),
+                    'id_tenant' => $token->claims()->get('tenant_id'),
+                    'roles' => array_map(
+                        fn(string $role): object => (object) ['name' => $role],
+                        is_array($token->claims()->get('roles', [])) ? $token->claims()->get('roles', []) : []
+                    ),
+                    'metadata' => [],
+                ];
+            }
 
             if (!$user instanceof stdClass) {
                 throw new \RuntimeException('Invalid user payload.');
@@ -120,15 +140,18 @@ final class Caronte
                 ? (string) $user->id_tenant
                 : null;
 
-            $localUser = CaronteUser::updateOrCreate(
-                [
-                    'uri_user' => $user->uri_user,
-                ],
-                [
-                    'id_tenant' => $tenantId,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                ]
+            $localUser = static::withTenantContext(
+                $tenantId,
+                fn(): CaronteUser => CaronteUser::withoutGlobalScopes()->updateOrCreate(
+                    [
+                        'uri_user' => $user->uri_user,
+                    ],
+                    [
+                        'id_tenant' => $tenantId,
+                        'name' => $user->name,
+                        'email' => $user->email,
+                    ]
+                )
             );
 
             $metadata = is_iterable($user->metadata ?? null) ? $user->metadata : [];
@@ -151,6 +174,35 @@ final class Caronte
             }
         } catch (Exception) {
             // Local sync is optional and should never break authentication flows.
+        }
+    }
+
+    private static function withTenantContext(?string $tenantId, callable $callback): mixed
+    {
+        if ($tenantId === null || !function_exists('app')) {
+            return $callback();
+        }
+
+        $app = app();
+        $hadContext = $app->bound(TenantContext::class);
+        $previousContext = $hadContext ? $app->make(TenantContext::class) : null;
+        $previousTenantId = $previousContext instanceof TenantContext
+            ? $previousContext->get()
+            : null;
+
+        $tenantContext = new TenantContext();
+        $tenantContext->set($tenantId);
+        $app->instance(TenantContext::class, $tenantContext);
+
+        try {
+            return $callback();
+        } finally {
+            if ($previousContext instanceof TenantContext) {
+                $previousContext->set($previousTenantId);
+                $app->instance(TenantContext::class, $previousContext);
+            } elseif (method_exists($app, 'forgetInstance')) {
+                $app->forgetInstance(TenantContext::class);
+            }
         }
     }
 

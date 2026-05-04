@@ -27,7 +27,9 @@ class ResolveApplicationContext
             );
         }
 
-        if (!CaronteApplicationToken::matches($token)) {
+        $matchType = CaronteApplicationToken::matchType($token);
+
+        if ($matchType === null) {
             return CaronteResponse::unauthorized(
                 message: 'Invalid application token.',
                 errors: ['The provided X-Application-Token does not match the configured application.']
@@ -38,6 +40,8 @@ class ResolveApplicationContext
             appCn: CaronteApplicationToken::cn(),
             appId: CaronteApplicationToken::appId(),
             applicationToken: $token,
+            authenticatedAsGroup: $matchType === 'application_group',
+            groupId: $matchType === 'application_group' ? CaronteApplicationToken::groupId() : null,
         ));
 
         $tenantResponse = static::resolveTenant(

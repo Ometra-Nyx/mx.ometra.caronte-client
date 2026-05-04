@@ -16,6 +16,8 @@ use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Ometra\Caronte\Api\AuthApi;
 use Ometra\Caronte\Exceptions\CaronteApiException;
 use Ometra\Caronte\Facades\Caronte;
+use Ometra\Caronte\Oidc\Base64Url;
+use Ometra\Caronte\Oidc\OidcTokenValidator;
 use Ometra\Caronte\Support\CaronteApplicationToken;
 use Ometra\Caronte\Support\RouteMode;
 use RuntimeException;
@@ -28,6 +30,10 @@ final class CaronteUserToken
 
     public static function validateToken(string $rawToken, bool $skipExchange = false): Plain
     {
+        if (static::shouldUseOidc($rawToken)) {
+            return app(OidcTokenValidator::class)->validate($rawToken);
+        }
+
         $token = static::decodeToken($rawToken);
 
         static::assertSignatureAndIssuer($token);
@@ -104,21 +110,64 @@ final class CaronteUserToken
             throw new BadRequestException('Invalid token');
         }
 
-        if (!$token->claims()->has('user') || !$token->claims()->has('app_id')) {
+        if (!$token->claims()->has('user')) {
+            throw new UnprocessableEntityException('Invalid token');
+        }
+
+        if (!$token->claims()->has('app_id') && !$token->claims()->has('group_id')) {
             throw new UnprocessableEntityException('Invalid token');
         }
 
         return $token;
     }
 
+    private static function shouldUseOidc(string $rawToken): bool
+    {
+        $mode = (string) config('caronte.auth_mode', 'legacy');
+
+        if ($mode === 'legacy') {
+            return false;
+        }
+
+        if ($mode === 'oidc') {
+            return true;
+        }
+
+        $parts = explode('.', $rawToken);
+
+        if (count($parts) !== 3) {
+            return false;
+        }
+
+        $header = json_decode((string) Base64Url::decode($parts[0]), true);
+
+        return is_array($header) && isset($header['kid']);
+    }
+
     public static function getConfig(): Configuration
     {
-        $signingKey = (string) config('caronte.app_secret');
+        return static::configForSigningKey(
+            signingKey: (string) config('caronte.app_secret'),
+            configName: 'CARONTE_APP_SECRET'
+        );
+    }
+
+    public static function getGroupConfig(): Configuration
+    {
+        return static::configForSigningKey(
+            signingKey: (string) config('caronte.application_group_secret'),
+            configName: 'CARONTE_APPLICATION_GROUP_SECRET'
+        );
+    }
+
+    private static function configForSigningKey(string $signingKey, string $configName): Configuration
+    {
 
         if (mb_strlen($signingKey) < static::MINIMUM_KEY_LENGTH) {
             throw new RuntimeException(
                 sprintf(
-                    'CARONTE_APP_SECRET must be at least %d characters long. Current length: %d.',
+                    '%s must be at least %d characters long. Current length: %d.',
+                    $configName,
                     static::MINIMUM_KEY_LENGTH,
                     mb_strlen($signingKey)
                 )
@@ -133,7 +182,7 @@ final class CaronteUserToken
 
     private static function assertSignatureAndIssuer(Plain $token): void
     {
-        $config = static::getConfig();
+        $config = static::configForToken($token);
         $validator = $config->validator();
         $constraints = [
             new SignedWith($config->signer(), $config->signingKey()),
@@ -150,8 +199,19 @@ final class CaronteUserToken
 
     private static function assertApplicationClaim(Plain $token): void
     {
-        $appId = (string) $token->claims()->get('app_id');
+        $audience = (string) $token->claims()->get('token_audience', 'application');
 
+        if ($audience === 'application_group') {
+            $groupId = (string) $token->claims()->get('group_id', '');
+
+            if ($groupId === '' || $groupId !== CaronteApplicationToken::groupId()) {
+                throw new UnprocessableEntityException('Token application group does not match the configured Caronte application group.');
+            }
+
+            return;
+        }
+
+        $appId = (string) $token->claims()->get('app_id');
         if ($appId !== CaronteApplicationToken::appId()) {
             throw new UnprocessableEntityException('Token application does not match the configured Caronte application.');
         }
@@ -184,5 +244,14 @@ final class CaronteUserToken
 
         return $expiresAt instanceof DateTimeImmutable
             && $expiresAt <= new DateTimeImmutable('now', new DateTimeZone('UTC'));
+    }
+
+    private static function configForToken(Plain $token): Configuration
+    {
+        $audience = (string) $token->claims()->get('token_audience', 'application');
+
+        return $audience === 'application_group'
+            ? static::getGroupConfig()
+            : static::getConfig();
     }
 }

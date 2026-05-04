@@ -26,10 +26,16 @@ abstract class TestCase extends Orchestra
         $app['config']->set('app.key', 'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=');
         $app['config']->set('app.url', 'https://client.test');
         $app['config']->set('session.driver', 'array');
-        $app['config']->set(
-            'view.compiled',
-            sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'caronte-client-views-' . getmypid()
-        );
+
+        $compiledViewsPath = dirname(__DIR__) . DIRECTORY_SEPARATOR
+            . '.phpunit.cache' . DIRECTORY_SEPARATOR
+            . 'views';
+
+        if (! is_dir($compiledViewsPath)) {
+            mkdir($compiledViewsPath, 0777, true);
+        }
+
+        $app['config']->set('view.compiled', $compiledViewsPath);
 
         $app['config']->set('caronte.url', 'https://caronte.test/');
         $app['config']->set('caronte.app_cn', 'test-app-id');
@@ -57,6 +63,8 @@ abstract class TestCase extends Orchestra
         ?array $user = null,
         ?DateTimeImmutable $issuedAt = null,
         ?DateTimeImmutable $expiresAt = null,
+        bool $group = false,
+        ?string $sourceAppId = null,
     ): string {
         $issuedAt ??= new DateTimeImmutable('now', new DateTimeZone('UTC'));
         $expiresAt ??= $issuedAt->modify('+15 minutes');
@@ -76,6 +84,50 @@ abstract class TestCase extends Orchestra
             'metadata' => [],
         ];
 
+        $signingKey = $group
+            ? (string) config('caronte.application_group_secret')
+            : (string) config('caronte.app_secret');
+
+        $config = Configuration::forSymmetricSigner(
+            new Sha256(),
+            InMemory::plainText($signingKey)
+        );
+
+        $builder = $config->builder(ChainedFormatter::default())
+            ->issuedBy((string) config('caronte.issuer_id', ''))
+            ->issuedAt($issuedAt)
+            ->canOnlyBeUsedAfter($issuedAt)
+            ->expiresAt($expiresAt)
+            ->withClaim('user', json_encode($user));
+
+        if ($group) {
+            $builder = $builder
+                ->withClaim('token_audience', 'application_group')
+                ->withClaim('group_id', (string) config('caronte.application_group_id'))
+                ->withClaim('source_app_id', $sourceAppId ?? sha1('source-app'));
+        } else {
+            $builder = $builder
+                ->withClaim('token_audience', 'application')
+                ->withClaim('app_id', CaronteApplicationToken::appId());
+        }
+
+        return $builder
+            ->getToken($config->signer(), $config->signingKey())
+            ->toString();
+    }
+
+    /**
+     * @param  array<int, string>  $permissions
+     */
+    protected function makeApplicationAccessToken(
+        array $permissions = ['invoices.read'],
+        string $tenantId = 'tenant-1',
+        ?DateTimeImmutable $issuedAt = null,
+        ?DateTimeImmutable $expiresAt = null,
+    ): string {
+        $issuedAt ??= new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $expiresAt ??= $issuedAt->modify('+1 year');
+
         $config = Configuration::forSymmetricSigner(
             new Sha256(),
             InMemory::plainText((string) config('caronte.app_secret'))
@@ -86,8 +138,12 @@ abstract class TestCase extends Orchestra
             ->issuedAt($issuedAt)
             ->canOnlyBeUsedAfter($issuedAt)
             ->expiresAt($expiresAt)
+            ->identifiedBy('application-token-1')
+            ->withClaim('token_audience', 'application_token')
             ->withClaim('app_id', CaronteApplicationToken::appId())
-            ->withClaim('user', json_encode($user))
+            ->withClaim('tenant_id', $tenantId)
+            ->withClaim('name', 'Integration token')
+            ->withClaim('permissions', $permissions)
             ->getToken($config->signer(), $config->signingKey())
             ->toString();
     }

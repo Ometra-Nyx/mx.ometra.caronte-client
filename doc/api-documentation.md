@@ -1,136 +1,154 @@
 # API Documentation
 
-This package is a **client** — it does not expose a REST API itself. This document describes:
+This package is a Laravel client for Caronte. It exposes no REST API by itself; it provides HTTP clients, commands, middleware, and local context objects.
 
-1. The Caronte server endpoints this package calls (via `AuthApi`, `ClientApi`, `RoleApi`)
-2. The `CaronteServiceClient` public API for inter-service communication
-3. The `CaronteApplicationContext` middleware for receiving application tokens
+## Outgoing Calls To Caronte
 
----
+All outgoing calls use `CaronteApiClient`, which sends:
 
-## 1. Caronte Server Endpoints (Outgoing Calls)
-
-All calls are made through three static proxy classes that delegate to `CaronteApiClient`.
-
-### 1.1 Auth Endpoints — `AuthApi`
-
-> Base URL: `config('caronte.url')`  
-> Auth: Application Token header (`X-Application-Token`) for `applicationRequest`; user JWT for `authRequest`.
-
-| Method | Verb | Path | PHP call | Description |
-|---|---|---|---|---|
-| `login` | POST | `/api/auth/login` | `AuthApi::login(email, password, appCn?, tenant?)` | Password-based login |
-| `requestTwoFactor` | POST | `/api/auth/2fa/request` | `AuthApi::requestTwoFactor(email, tenant?)` | Request 2FA code |
-| `issueTwoFactor` | POST | `/api/auth/2fa/issue` | `AuthApi::issueTwoFactor(email, tenant?)` | Issue/resend 2FA challenge |
-| `consumeTwoFactor` | POST | `/api/auth/2fa/consume` | `AuthApi::consumeTwoFactor(email, code, tenant?)` | Submit 2FA code |
-| `exchange` | POST | `/api/auth/exchange` | `AuthApi::exchange(token)` | Exchange/renew a user JWT |
-| `requestPasswordRecovery` | POST | `/api/auth/password/request` | `AuthApi::requestPasswordRecovery(email, tenant?)` | Start password recovery |
-| `consumePasswordRecovery` | POST | `/api/auth/password/consume` | `AuthApi::consumePasswordRecovery(token, password)` | Complete password recovery |
-
-All methods return:
-
-```php
-array{
-    status:  int,           // HTTP status code
-    message: string,        // Human-readable message
-    data:    mixed,         // Payload (user object, token, etc.)
-    errors:  array|null,    // Validation errors
-}
+```http
+X-Application-Token: base64(app_id:app_secret)
 ```
 
-### 1.2 User/Client Endpoints — `ClientApi`
+If a tenant context is bound, it also sends:
 
-> Auth: Application Token (`X-Application-Token`) + optional `X-Tenant-Id`
-
-| Method | Verb | Path | Description |
-|---|---|---|---|
-| `showUsers(tenant?)` | GET | `/api/clients` | List all users for a tenant |
-| `createUser(data, tenant?)` | POST | `/api/clients` | Create a new user |
-| `showUser(uri, tenant?)` | GET | `/api/clients/{uri}` | Get a single user |
-| `updateUser(uri, data, tenant?)` | PUT | `/api/clients/{uri}` | Update user data |
-| `deleteUser(uri, tenant?)` | DELETE | `/api/clients/{uri}` | Delete a user |
-| `showUserRoles(uri, tenant?)` | GET | `/api/clients/{uri}/roles` | List roles assigned to a user |
-| `syncUserRoles(uri, roles, tenant?)` | PUT | `/api/clients/{uri}/roles` | Overwrite user role assignments |
-| `storeUserMetadata(uri, key, value, tenant?)` | POST | `/api/clients/{uri}/metadata` | Set a metadata key |
-| `deleteUserMetadata(uri, key, tenant?)` | DELETE | `/api/clients/{uri}/metadata/{key}` | Remove a metadata key |
-
-### 1.3 Role Endpoints — `RoleApi`
-
-> Auth: Application Token
-
-| Method | Verb | Path | Description |
-|---|---|---|---|
-| `showRoles()` | GET | `/api/applications/roles` | List all roles for this application |
-| `syncRoles(roles)` | PUT | `/api/applications/roles` | Overwrite application roles |
-
-`syncRoles` payload shape:
-
-```php
-[
-    ['name' => 'admin',  'description' => 'Administrator'],
-    ['name' => 'editor', 'description' => 'Content editor'],
-]
+```http
+X-Tenant-Id: <tenant_id>
 ```
 
----
+### AuthApi
 
-## 2. Application Token Format
+| Method | Caronte endpoint | Purpose |
+|---|---|---|
+| `login()` | `POST /api/auth/login` | Password login |
+| `exchange()` | `POST /api/auth/exchange` | Exchange expired user JWT |
+| `requestTwoFactor()` / `issueTwoFactor()` / `consumeTwoFactor()` | `/api/auth/2fa...` | 2FA flow |
+| `requestPasswordRecovery()` / `consumePasswordRecovery()` | `/api/auth/password...` | Password recovery |
 
-All server-to-server calls use an `X-Application-Token` header:
+### ClientApi
 
-```
-X-Application-Token: base64( sha1(lower(app_cn)) : app_secret )
+Uses `/api/users` on the server.
+
+| Method | Caronte endpoint | Purpose |
+|---|---|---|
+| `showUsers()` | `GET /api/users` | List users |
+| `createUser()` | `POST /api/users` | Create user |
+| `showUser()` | `GET /api/users/{uri}` | Show user |
+| `updateUser()` | `PUT /api/users/{uri}` | Update user |
+| `deleteUser()` | `DELETE /api/users/{uri}` | Delete user |
+| `showUserRoles()` | `GET /api/users/{uri}/roles` | List roles |
+| `syncUserRoles()` | `PUT /api/users/{uri}/roles` | Replace roles |
+
+### RoleApi
+
+| Method | Caronte endpoint | Purpose |
+|---|---|---|
+| `showRoles()` | `GET /api/applications/roles` | List role catalog |
+| `syncRoles()` | `PUT /api/applications/roles` | Replace role catalog |
+
+### PermissionApi
+
+| Method | Caronte endpoint | Purpose |
+|---|---|---|
+| `showPermissions()` | `GET /api/applications/permissions` | List API permissions declared by this app |
+| `syncPermissions()` | `PUT /api/applications/permissions` | Replace API permissions declared by this app |
+
+These permissions are for external consumers of this application's API. They are not user roles and are not Caronte platform permissions.
+
+## Application Credentials
+
+### Individual App Token
+
+```text
+base64(app_id:app_secret)
 ```
 
 Generated by `CaronteApplicationToken::make()`.
 
----
+### Application Group Token
 
-## 3. CaronteServiceClient (Inter-Service Communication)
+If configured:
 
-Use `CaronteServiceClient` when this host application needs to call **another** Caronte-protected service.
+```env
+CARONTE_APPLICATION_GROUP_ID=core-suite
+CARONTE_APPLICATION_GROUP_SECRET=a-secret-at-least-32-characters-long
+```
+
+`CaronteApplicationToken::makeGroup()` returns:
+
+```text
+base64(group_id:application_group_secret)
+```
+
+`caronte.application` accepts either individual or group app tokens.
+
+## Incoming Middleware
+
+### `caronte.session`
+
+Validates the current user JWT from session or `Authorization: Bearer`. It accepts individual app user tokens and grouped user tokens. Grouped user tokens are validated with `CARONTE_APPLICATION_GROUP_SECRET` and must match `CARONTE_APPLICATION_GROUP_ID`.
+
+### `caronte.roles:<role>`
+
+Checks roles in the user JWT. `root` is always accepted as an override.
+
+### `caronte.application[:tenant_required]`
+
+Validates `X-Application-Token` for app-to-app requests and binds `CaronteApplicationContext`.
+
+### `caronte.app-token`
+
+Validates an `ApplicationToken` JWT from:
+
+```http
+Authorization: Bearer <application_token_jwt>
+```
+
+The token must:
+
+- Have `token_audience=application_token`
+- Match this app's `app_id`
+- Be signed with this app's `CARONTE_APP_SECRET`
+- Include `tenant_id` and `permissions`
+- Be unexpired
+
+On success it binds `CaronteApplicationAccessContext`.
+
+### `caronte.app-permissions:<permission>`
+
+Requires an already validated application access token and checks its declared permissions.
 
 ```php
-use Ometra\Caronte\CaronteServiceClient;
-
-// Same Caronte credentials (shares this app's token)
-$client = new CaronteServiceClient('https://service-b.example.com');
-
-// Different Caronte credentials
-$client = new CaronteServiceClient(
-    baseUrl:   'https://service-b.example.com',
-    appCn:     'service-b-cn',
-    appSecret: 'service-b-secret',
-);
-
-// Application-token request (no user context)
-$response = $client->applicationRequest('GET', 'api/resources', [], tenantId: 'tenant-1');
-
-// User-token request (forwards user JWT)
-$token    = Caronte::getToken();
-$response = $client->userRequest('POST', 'api/orders', $data, $token, tenantId: 'tenant-1');
+Route::middleware([
+    'caronte.app-token',
+    'caronte.app-permissions:invoices.read',
+])->get('/api/invoices', InvoiceController::class);
 ```
 
-Response shape is the same normalised array as all other API methods.
+## Context Objects
 
----
+### `CaronteApplicationContext`
 
-## 4. Receiving Application Tokens (Incoming Calls)
+Bound by `caronte.application`.
 
-The `caronte.application` middleware validates the `X-Application-Token` header on routes that accept inter-service calls:
+| Property | Meaning |
+|---|---|
+| `appCn` | Configured app CN |
+| `appId` | SHA1 app id |
+| `applicationToken` | Raw incoming app token |
+| `authenticatedAsGroup` | Whether the request used group credentials |
+| `groupId` | Group id when grouped |
 
-```
-X-Application-Token: <base64 token>
-X-Tenant-Id: <optional tenant identifier>
-```
+### `CaronteApplicationAccessContext`
 
-On success it binds a `CaronteApplicationContext` instance into the IoC container:
+Bound by `caronte.app-token`.
 
-```php
-$ctx = app(CaronteApplicationContext::class);
-$ctx->appCn;             // Canonical name extracted from token
-$ctx->appId;             // sha1(lower(appCn))
-$ctx->applicationToken;  // Raw token string
-```
+| Property | Meaning |
+|---|---|
+| `tokenId` | JWT `jti` |
+| `appId` | Target app id |
+| `tenantId` | Tenant scope |
+| `name` | Token label |
+| `permissions` | Allowed API permissions |
 
-When the middleware is used with the `tenant_required` argument, requests without an `X-Tenant-Id` header are rejected with `422`.
+Use `hasPermission('invoices.read')` for programmatic checks.

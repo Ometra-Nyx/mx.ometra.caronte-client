@@ -1,6 +1,6 @@
 {
-  "name": "ometra/caronte-client",
-  "description": "Caronte authentication client",
+  "name": "ometra/caronte-sdk",
+  "description": "Caronte sdkt",
   "type": "library",
   "license": "MIT",
   "authors": [
@@ -11,7 +11,7 @@
   ],
   "require": {
     "php": "^8.2",
-    "equidna/bee-hive": ">=2.0",
+    "equidna/bee-hive": "^3.0",
     "equidna/laravel-toolkit": ">=1.0.0",
     "lcobucci/jwt": "^5.3",
     "lcobucci/clock": "^3.2",

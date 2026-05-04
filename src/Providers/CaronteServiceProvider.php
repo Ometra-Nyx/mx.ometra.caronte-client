@@ -10,6 +10,7 @@ use Inertia\Inertia;
 use Ometra\Caronte\Api\CaronteApiClient;
 use Ometra\Caronte\Caronte;
 use Ometra\Caronte\Console\Commands\ManagementCaronte;
+use Ometra\Caronte\Console\Commands\Permissions\SyncPermissions;
 use Ometra\Caronte\Console\Commands\Roles\SyncRoles;
 use Ometra\Caronte\Console\Commands\Users\CreateUser;
 use Ometra\Caronte\Console\Commands\Users\DeleteUser;
@@ -21,6 +22,8 @@ use Ometra\Caronte\Contracts\SendsTwoFactorChallenge;
 use Ometra\Caronte\Facades\Caronte as CaronteFacade;
 use Ometra\Caronte\Helpers\PermissionHelper;
 use Ometra\Caronte\Http\Middleware\ResolveApplicationContext;
+use Ometra\Caronte\Http\Middleware\ValidateApplicationAccessPermissions;
+use Ometra\Caronte\Http\Middleware\ValidateApplicationAccessToken;
 use Ometra\Caronte\Http\Middleware\ValidateUserRoles;
 use Ometra\Caronte\Http\Middleware\ValidateUserToken;
 use Ometra\Caronte\Notifications\PasswordRecoverySender;
@@ -85,6 +88,8 @@ class CaronteServiceProvider extends ServiceProvider
         $router->aliasMiddleware('caronte.session', ValidateUserToken::class);
         $router->aliasMiddleware('caronte.roles', ValidateUserRoles::class);
         $router->aliasMiddleware('caronte.application', ResolveApplicationContext::class);
+        $router->aliasMiddleware('caronte.app-token', ValidateApplicationAccessToken::class);
+        $router->aliasMiddleware('caronte.app-permissions', ValidateApplicationAccessPermissions::class);
 
         Route::middleware(['web'])->group(function (): void {
             $this->loadRoutesFrom(__DIR__ . '/../../routes/web.php');
@@ -131,6 +136,7 @@ class CaronteServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ManagementCaronte::class,
+                SyncPermissions::class,
                 SyncRoles::class,
                 ListUsers::class,
                 CreateUser::class,

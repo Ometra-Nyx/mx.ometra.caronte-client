@@ -42,6 +42,37 @@ php artisan caronte:roles:sync
 
 ---
 
+## caronte:permissions:sync
+
+**Class:** `Permissions\SyncPermissions`
+
+Reads API permissions defined in `config/caronte.php` under the `permissions` key and pushes them to the Caronte server. These permissions are used when tenant admins generate `ApplicationTokens` for external apps that consume this application's API.
+
+```bash
+# Preview normalized permissions
+php artisan caronte:permissions:sync --dry-run
+
+# Apply
+php artisan caronte:permissions:sync
+```
+
+Example config:
+
+```php
+'permissions' => [
+    'invoices.read' => 'Read invoices',
+    'invoices.write' => 'Write invoices',
+],
+```
+
+**Options:**
+
+| Option | Description |
+|---|---|
+| `--dry-run` | Show normalized permissions without pushing |
+
+---
+
 ## caronte:users:list
 
 **Class:** `Users\ListUsers`

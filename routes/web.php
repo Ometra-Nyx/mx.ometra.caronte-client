@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Ometra\Caronte\Http\Controllers\AuthController;
 use Ometra\Caronte\Http\Controllers\ManagementController;
+use Ometra\Caronte\Http\Controllers\OidcAuthController;
 use Ometra\Caronte\Http\Controllers\RoleController;
 use Ometra\Caronte\Http\Controllers\UserController;
 
@@ -15,6 +16,9 @@ Route::prefix($authPrefix)->name('caronte.')->group(function () use ($loginPath)
     Route::get($loginPath, [AuthController::class, 'loginForm'])->name('login.form');
     Route::post($loginPath, [AuthController::class, 'login'])->name('login');
     Route::post('logout', [AuthController::class, 'logout'])->name('logout');
+    Route::get('oidc/login', [OidcAuthController::class, 'redirect'])->name('oidc.login');
+    Route::get('oidc/callback', [OidcAuthController::class, 'callback'])->name('oidc.callback');
+    Route::post('oidc/logout', [OidcAuthController::class, 'logout'])->name('oidc.logout');
 
     Route::post('2fa', [AuthController::class, 'twoFactorTokenRequest'])->name('2fa.request');
     Route::get('2fa/{token}', [AuthController::class, 'twoFactorTokenLogin'])->name('2fa.login');

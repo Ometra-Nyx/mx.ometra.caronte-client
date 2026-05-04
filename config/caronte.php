@@ -9,6 +9,8 @@ return [
     'url'        => env('CARONTE_URL', ''),
     'app_cn'     => env('CARONTE_APP_CN', ''),
     'app_secret' => env('CARONTE_APP_SECRET', ''),
+    'application_group_id' => env('CARONTE_APPLICATION_GROUP_ID', ''),
+    'application_group_secret' => env('CARONTE_APPLICATION_GROUP_SECRET', ''),
 
     /*
     |--------------------------------------------------------------------------
@@ -17,6 +19,21 @@ return [
     */
     'issuer_id'      => env('CARONTE_ISSUER_ID', 'caronte'),
     'enforce_issuer' => env('CARONTE_ENFORCE_ISSUER', true),
+    'auth_mode'      => env('CARONTE_AUTH_MODE', 'legacy'), // legacy, oidc, dual
+
+    /*
+    |--------------------------------------------------------------------------
+    | OpenID Connect Configuration
+    |--------------------------------------------------------------------------
+    */
+    'oidc' => [
+        'issuer'        => env('CARONTE_OIDC_ISSUER', env('CARONTE_URL', '')),
+        'client_id'     => env('CARONTE_OIDC_CLIENT_ID', env('CARONTE_APP_CN', '')),
+        'client_secret' => env('CARONTE_OIDC_CLIENT_SECRET', ''),
+        'redirect_uri'  => env('CARONTE_OIDC_REDIRECT_URI', ''),
+        'scopes'        => env('CARONTE_OIDC_SCOPES', 'openid profile email'),
+        'jwks_cache_ttl' => (int) env('CARONTE_OIDC_JWKS_CACHE_TTL', 3600),
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -68,6 +85,15 @@ return [
     */
     'roles' => [
         'root' => 'Default super administrator role',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Application API Permissions
+    |--------------------------------------------------------------------------
+    */
+    'permissions' => [
+        // 'invoices.read' => 'Read invoices through this application API',
     ],
 
     /*
