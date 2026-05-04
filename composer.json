@@ -1,6 +1,6 @@
 {
-  "name": "ometra/caronte-client",
-  "description": "Caronte authentication client",
+  "name": "ometra/caronte-sdk",
+  "description": "Caronte sdkt",
   "type": "library",
   "license": "MIT",
   "authors": [
