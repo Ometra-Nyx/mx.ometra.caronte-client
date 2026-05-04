@@ -1,5 +1,25 @@
 # Breaking Changes
 
+## v3.1.0
+
+### What Changed
+
+1. **`equidna/bee-hive` raised to `^3.0`** — BeeHive 2.x is no longer supported. Host applications that constrain BeeHive at `^2.x` must upgrade BeeHive before upgrading to Caronte SDK `^3.1`.
+
+### Why
+
+BeeHive 3.0 introduces improved tenant context binding APIs used by Caronte SDK's `syncUser()` flow and the `BindsTenantContext` console concern. Maintaining backwards-compatibility with BeeHive 2.x would have required version-conditional shims across multiple call sites.
+
+### Migration: BeeHive Upgrade
+
+1. Update your `composer.json` to require `equidna/bee-hive: ^3.0`.
+2. Run `composer update equidna/bee-hive`.
+3. Review the BeeHive 3.0 changelog for any additional breaking changes in that package.
+
+> No Caronte SDK class names, method signatures, middleware aliases, or config keys changed in this release.
+
+---
+
 ## v3.0.0
 
 ### What Changed

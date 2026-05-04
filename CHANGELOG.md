@@ -11,6 +11,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - No changes yet.
 
+## [3.1.0] - 2026-05-04 "Aegis"
+
+### Added
+
+- **OpenID Connect (OIDC) authentication** — full OIDC/OAuth 2.0 authorization code flow with PKCE support.
+  - `OidcAuthController` — handles authorization redirect, callback/token exchange, and logout.
+  - `Oidc/OidcClient` — authorization URL construction, authorization-code exchange, and token refresh.
+  - `Oidc/OidcTokenValidator` — validates OIDC ID tokens against a JWKS endpoint.
+  - `Oidc/JwksCache` — fetches and caches the Caronte server JWKS; TTL configurable via `CARONTE_OIDC_JWKS_CACHE_TTL`.
+  - `Oidc/Jwk` — parses a JWK entry and verifies RS256 signatures.
+  - `Oidc/Pkce` — generates PKCE `code_verifier` and S256 `code_challenge` pairs.
+  - `Oidc/Base64Url` — URL-safe Base64 encode/decode helper.
+  - `CaronteUserToken` now selects the correct validator (`legacy`, `oidc`, or `dual`) based on `config('caronte.auth_mode')` and the token `kid` header.
+  - `Caronte::getUser()` extended to build a user object from standard OIDC claims (`sub`, `name`, `email`, `email_verified`) when the legacy `user` claim is absent.
+  - `AuthController` redirects to the OIDC authorization endpoint when `auth_mode` is `oidc` or `dual`.
+  - New routes registered under `caronte/oidc/*` for the OIDC flow.
+- **Application-group tokens** — group-level server-to-server authentication.
+  - `CaronteApplicationAccessToken` — generates and validates application-group tokens using `CARONTE_APPLICATION_GROUP_ID` + `CARONTE_APPLICATION_GROUP_SECRET`.
+  - `CaronteApplicationAccessContext` — HTTP context object bound into the container on successful group-token validation.
+  - `ValidateApplicationAccessToken` middleware (`caronte.app-token` alias) — validates the `X-Application-Access-Token` header and binds `CaronteApplicationAccessContext`.
+  - `ValidateApplicationAccessPermissions` middleware (`caronte.app-permissions` alias) — asserts that the bound `CaronteApplicationAccessContext` carries the required permissions.
+  - `CaronteApplicationToken` updated to match and emit group context.
+  - `CaronteUserToken` updated to support group-signed tokens.
+  - `ResolveApplicationContext` updated to populate group context when present.
+- **Permission synchronisation** — declarative permission management.
+  - `PermissionApi` — API client for Caronte permission endpoints.
+  - `ConfiguredPermissions` helper — encapsulates `config('caronte.permissions')` logic.
+  - `caronte:permissions:sync [--dry-run]` Artisan command — syncs configured permissions to the Caronte server.
+- New config keys in `config/caronte.php`:
+  - `application_group_id` / `application_group_secret` — group credentials (from `CARONTE_APPLICATION_GROUP_ID` / `CARONTE_APPLICATION_GROUP_SECRET`).
+  - `auth_mode` — `legacy` (default), `oidc`, or `dual`; controls which token validator is used.
+  - `oidc.issuer`, `oidc.client_id`, `oidc.client_secret`, `oidc.redirect_uri`, `oidc.scopes`, `oidc.jwks_cache_ttl` — full OIDC client configuration.
+- New Feature tests: group-token validation, `ValidateApplicationAccessToken` and `ValidateApplicationAccessPermissions` middleware behaviour, `caronte:permissions:sync` command.
+- `.env.example` updated with `CARONTE_APPLICATION_GROUP_ID` and `CARONTE_APPLICATION_GROUP_SECRET`.
+
+### Changed
+
+- `equidna/bee-hive` constraint bumped from `>=2.0` to `^3.0` — requires BeeHive 3.x; see dependency note below.
+- `Caronte::syncUser()` now binds a `TenantContext` during local DB operations, ensuring tenant-scoped writes are consistent with the active BeeHive context.
+- Documentation suite (`doc/`) comprehensively updated:
+  - `api-documentation.md` — covers `CaronteApiClient`, all API clients, application credentials (individual and group tokens), incoming middleware, and context objects.
+  - `artisan-commands.md` — adds `caronte:permissions:sync` documentation.
+  - `business-logic-and-core-processes.md` — updated for application-token flows and permission synchronisation.
+  - `routes-documentation.md` — covers new OIDC routes and application-token middleware routes.
+  - `tests-documentation.md` — reflects new test helpers and group-token/middleware test coverage.
+- `README.md` updated with a Token Types reference section and OIDC quick-start.
+
+### Dependency Note
+
+`equidna/bee-hive` is now required at `^3.0`. If your host application pins BeeHive at `^2.x`, you must upgrade BeeHive before upgrading to Caronte SDK `^3.1`. No other public APIs were changed or removed.
+
 ## [3.0.0] - 2026-04-28 "Archon"
 
 ### Breaking Changes
