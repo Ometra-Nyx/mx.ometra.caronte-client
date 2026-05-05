@@ -31,6 +31,7 @@ class AuthController extends BaseController
             'callback_url' => $request->query('callback_url'),
             'csrf_token' => csrf_token(),
             'branding' => $this->branding(),
+            'tenant_options' => (array) session('data.tenants', []),
             'routes' => [
                 'login' => route('caronte.login'),
                 'logout' => route('caronte.logout'),
@@ -96,12 +97,16 @@ class AuthController extends BaseController
         $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
+            'tenant_id' => ['nullable', 'string'],
         ]);
 
         try {
             $response = AuthApi::login(
                 email: $request->string('email')->toString(),
-                password: $request->string('password')->toString()
+                password: $request->string('password')->toString(),
+                tenantId: $request->input('tenant_id') !== null
+                    ? $request->string('tenant_id')->toString()
+                    : null
             );
 
             $tokenString = (string) data_get($response, 'data.token', '');
@@ -117,6 +122,18 @@ class AuthController extends BaseController
                 forwardUrl: $this->forwardUrl($request->input('callback_url'))
             );
         } catch (CaronteApiException $exception) {
+            if (
+                $exception->getCode() === 409
+                && ($exception->errors()['code'] ?? null) === 'tenant_selection_required'
+            ) {
+                return CaronteResponse::conflict(
+                    message: $exception->getMessage(),
+                    errors: $exception->errors(),
+                    data: ['tenants' => $exception->errors()['tenants'] ?? []],
+                    forwardUrl: (string) config('caronte.login_url')
+                );
+            }
+
             return CaronteResponse::handleException(
                 exception: $exception,
                 errors: $exception->errors(),

@@ -5,6 +5,7 @@ export default function Login({
   routes = {},
   branding = {},
   csrf_token,
+  tenant_options = [],
 }) {
   return (
     <section className="caronte-auth">
@@ -57,6 +58,27 @@ export default function Login({
                 required
               />
             </div>
+
+            {tenant_options.length > 0 ? (
+              <div>
+                <label htmlFor="tenant_id" className="form-label">
+                  Tenant
+                </label>
+                <select
+                  id="tenant_id"
+                  name="tenant_id"
+                  className="form-control"
+                  required
+                >
+                  <option value="">Select tenant</option>
+                  {tenant_options.map((tenant) => (
+                    <option key={tenant.tenant_id} value={tenant.tenant_id}>
+                      {tenant.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
 
             <button type="submit" className="btn caronte-btn-primary">
               Continue

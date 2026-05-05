@@ -1,6 +1,7 @@
 @extends('caronte::layouts.base')
 
 @php($branding = $branding ?? config('caronte.ui.branding', []))
+@php($tenantOptions = $tenant_options ?? [])
 
 @section('content')
     <section class="caronte-auth">
@@ -30,6 +31,20 @@
                         <label for="password" class="form-label">Password</label>
                         <input id="password" type="password" name="password" class="form-control" required>
                     </div>
+
+                    @if (!empty($tenantOptions))
+                        <div>
+                            <label for="tenant_id" class="form-label">Tenant</label>
+                            <select id="tenant_id" name="tenant_id" class="form-control" required>
+                                <option value="">Select tenant</option>
+                                @foreach ($tenantOptions as $tenant)
+                                    <option value="{{ $tenant['tenant_id'] }}" @selected(old('tenant_id') === $tenant['tenant_id'])>
+                                        {{ $tenant['name'] }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
 
                     <button type="submit" class="btn caronte-btn-primary">Continue</button>
                 </form>

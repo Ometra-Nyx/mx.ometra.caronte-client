@@ -50,6 +50,58 @@ class AuthContractTest extends TestCase
         });
     }
 
+    public function test_login_redirects_with_tenant_options_when_selection_is_required(): void
+    {
+        Http::fake([
+            'https://caronte.test/api/auth/login' => Http::response([
+                'status' => 409,
+                'message' => 'Tenant selection required.',
+                'errors' => [
+                    'code' => 'tenant_selection_required',
+                    'tenants' => [
+                        ['tenant_id' => 'tenant-a', 'name' => 'Tenant A', 'global' => false],
+                        ['tenant_id' => 'tenant-b', 'name' => 'Tenant B', 'global' => false],
+                    ],
+                ],
+            ], 409),
+        ]);
+
+        $response = $this->post('/login', [
+            'email' => 'shared@example.com',
+            'password' => 'Password123!',
+        ]);
+
+        $response->assertRedirect('/login');
+        $response->assertSessionHas('data.tenants.0.tenant_id', 'tenant-a');
+        $response->assertSessionHasErrors(['code']);
+    }
+
+    public function test_login_sends_selected_tenant_to_caronte(): void
+    {
+        $token = $this->makeToken();
+
+        Http::fake([
+            'https://caronte.test/api/auth/login' => Http::response([
+                'status' => 200,
+                'message' => 'Token generated',
+                'data' => ['token' => $token],
+            ], 200),
+        ]);
+
+        $this->post('/login', [
+            'email' => 'shared@example.com',
+            'password' => 'Password123!',
+            'tenant_id' => 'tenant-b',
+        ])->assertRedirect('/');
+
+        Http::assertSent(function ($request): bool {
+            return $request->url() === 'https://caronte.test/api/auth/login'
+                && $request['email'] === 'shared@example.com'
+                && $request['password'] === 'Password123!'
+                && $request['tenant_id'] === 'tenant-b';
+        });
+    }
+
     public function test_local_user_sync_persists_token_tenant(): void
     {
         Schema::dropIfExists('Users');
