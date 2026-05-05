@@ -1,4 +1,4 @@
-﻿# README — mx.ometra.caronte-client
+# README — mx.ometra.caronte-client
 
 > This documentation follows the project's Coding Standards and PHPDoc Style Guide.
 
