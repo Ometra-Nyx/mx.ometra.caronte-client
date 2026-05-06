@@ -2,6 +2,8 @@
 
 namespace Ometra\Caronte\Api;
 
+use Ometra\Caronte\Facades\Caronte;
+
 class AuthApi
 {
     /**
@@ -32,7 +34,7 @@ class AuthApi
     {
         return app(CaronteApiClient::class)->authRequest(
             method: 'post',
-            endpoint: 'api/auth/2fa',
+            endpoint: 'api/auth/two-factor',
             payload: [
                 'email' => $email,
                 'callback_url' => $callbackUrl,
@@ -47,7 +49,7 @@ class AuthApi
     {
         return app(CaronteApiClient::class)->authRequest(
             method: 'post',
-            endpoint: 'api/auth/2fa/issue',
+            endpoint: 'api/auth/two-factor/issue',
             payload: [
                 'email' => $email,
                 'callback_url' => $callbackUrl,
@@ -62,7 +64,7 @@ class AuthApi
     {
         return app(CaronteApiClient::class)->authRequest(
             method: 'post',
-            endpoint: 'api/auth/2fa/' . $token
+            endpoint: 'api/auth/two-factor/' . $token
         );
     }
 
@@ -125,17 +127,10 @@ class AuthApi
      */
     public static function logout(?string $userToken = null, bool $allSessions = false): array
     {
-        if ($userToken === null) {
-            return app(CaronteApiClient::class)->userRequest(
-                method: 'post',
-                endpoint: $allSessions ? 'api/auth/logoutAll' : 'api/auth/logout'
-            );
-        }
-
         return app(CaronteApiClient::class)->authRequest(
             method: 'post',
             endpoint: $allSessions ? 'api/auth/logoutAll' : 'api/auth/logout',
-            userToken: $userToken
+            userToken: $userToken ?? Caronte::getToken()->toString()
         );
     }
 

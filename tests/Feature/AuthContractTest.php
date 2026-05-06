@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ViewErrorBag;
 use Illuminate\Support\MessageBag;
 use Ometra\Caronte\Api\CaronteApiClient;
+use Ometra\Caronte\Api\AuthApi;
+use Ometra\Caronte\Api\ProvisioningApi;
 use Ometra\Caronte\Caronte;
 use Ometra\Caronte\CaronteUserToken;
 use Ometra\Caronte\Contracts\SendsPasswordRecovery;
@@ -126,17 +128,72 @@ class AuthContractTest extends TestCase
         );
     }
 
+    public function test_user_payload_prefers_explicit_jwt_claims(): void
+    {
+        $token = $this->makeToken([
+            'uri_user' => 'user-claims',
+            'name' => 'Legacy Name',
+            'email' => 'legacy@example.com',
+            'id_tenant' => 'legacy-tenant',
+            'roles' => [],
+            'metadata' => [],
+        ]);
+
+        $parsed = CaronteUserToken::validateToken($token);
+        $user = CaronteUserToken::userPayload($parsed);
+
+        $this->assertSame('user-claims', $user->uri_user);
+        $this->assertSame('Legacy Name', $user->name);
+        $this->assertSame('legacy@example.com', $user->email);
+        $this->assertSame('legacy-tenant', $user->tenant_id);
+        $this->assertSame('legacy-tenant', $user->id_tenant);
+    }
+
+    public function test_user_payload_supports_tokens_without_legacy_user_claim(): void
+    {
+        $token = $this->makeTokenWithoutLegacyUserClaim([
+            'uri_user' => 'user-flat',
+            'name' => 'Flat Claim User',
+            'email' => 'flat@example.com',
+            'tenant_id' => 'tenant-flat',
+            'roles' => [
+                [
+                    'name' => 'root',
+                    'app_id' => CaronteApplicationToken::appId(),
+                    'uri_applicationRole' => sha1(CaronteApplicationToken::appId() . 'root'),
+                ],
+            ],
+            'metadata' => [
+                [
+                    'scope' => CaronteApplicationToken::appId(),
+                    'key' => 'theme',
+                    'value' => 'dark',
+                ],
+            ],
+        ]);
+
+        $parsed = CaronteUserToken::validateToken($token);
+        $user = CaronteUserToken::userPayload($parsed);
+
+        $this->assertSame('user-flat', $user->uri_user);
+        $this->assertSame('Flat Claim User', $user->name);
+        $this->assertSame('flat@example.com', $user->email);
+        $this->assertSame('tenant-flat', $user->tenant_id);
+        $this->assertSame('root', $user->roles[0]->name);
+        $this->assertSame('theme', $user->metadata[0]->key);
+    }
+
     public function test_host_notification_delivery_uses_issue_endpoints_and_package_mailables(): void
     {
         config()->set('caronte.notification_delivery', 'host');
 
         Http::fake([
-            'https://caronte.test/api/auth/2fa/issue' => Http::response([
+            'https://caronte.test/api/auth/two-factor/issue' => Http::response([
                 'status' => 200,
                 'message' => '2FA challenge issued',
                 'data' => [
                     'email' => 'root@example.com',
-                    'action_url' => 'https://client.test/2fa/example-token',
+                    'action_url' => 'https://client.test/two-factor/example-token',
                     'expires_at' => '2026-04-25T10:00:00Z',
                 ],
             ], 200),
@@ -153,14 +210,14 @@ class AuthContractTest extends TestCase
 
         Mail::fake();
 
-        $this->post('/2fa', ['email' => 'root@example.com'])->assertRedirect('/login');
+        $this->post('/two-factor', ['email' => 'root@example.com'])->assertRedirect('/login');
         $this->post('/password/recover', ['email' => 'root@example.com'])->assertRedirect('/login');
 
         Mail::assertSent(TwoFactorChallengeMail::class);
         Mail::assertSent(PasswordRecoveryMail::class);
 
         Http::assertSent(function ($request): bool {
-            return $request->url() === 'https://caronte.test/api/auth/2fa/issue'
+            return $request->url() === 'https://caronte.test/api/auth/two-factor/issue'
                 && $request['email'] === 'root@example.com'
                 && isset($request['callback_url'])
                 && ! array_key_exists('app_url', $request->data());
@@ -180,7 +237,7 @@ class AuthContractTest extends TestCase
             'passwordRecoverForm' => '/password/recover',
             'passwordRecoverRequest' => '/password/recover',
             'passwordRecoverSubmit' => '/password/recover/token',
-            'twoFactorRequest' => '/2fa',
+            'twoFactorRequest' => '/two-factor',
         ];
 
         $this->assertStringContainsString('Sign in', view('caronte::auth.login', [
@@ -204,7 +261,7 @@ class AuthContractTest extends TestCase
 
         $this->assertStringContainsString(
             $expiresAt,
-            (new TwoFactorChallengeMail('https://client.test/2fa/example-token', $expiresAt))->render()
+            (new TwoFactorChallengeMail('https://client.test/two-factor/example-token', $expiresAt))->render()
         );
     }
 
@@ -218,7 +275,7 @@ class AuthContractTest extends TestCase
 
         app(SendsTwoFactorChallenge::class)->send(
             email: 'root@example.com',
-            actionUrl: 'https://client.test/2fa/example-token',
+            actionUrl: 'https://client.test/two-factor/example-token',
             expiresAt: '2026-04-25T10:00:00Z'
         );
 
@@ -230,7 +287,7 @@ class AuthContractTest extends TestCase
 
         $this->assertSame([
             'email' => 'root@example.com',
-            'actionUrl' => 'https://client.test/2fa/example-token',
+            'actionUrl' => 'https://client.test/two-factor/example-token',
             'expiresAt' => '2026-04-25T10:00:00Z',
         ], TestTwoFactorChallengeSender::$sent);
 
@@ -273,6 +330,75 @@ class AuthContractTest extends TestCase
         });
     }
 
+    public function test_logout_api_sends_application_and_user_tokens(): void
+    {
+        $token = $this->makeToken();
+
+        Http::fake([
+            'https://caronte.test/api/auth/logout' => Http::response([
+                'status' => 200,
+                'message' => 'Logout successful',
+                'data' => [],
+            ], 200),
+        ]);
+
+        AuthApi::logout($token);
+
+        Http::assertSent(function ($request) use ($token): bool {
+            return $request->url() === 'https://caronte.test/api/auth/logout'
+                && $request->method() === 'POST'
+                && $request->hasHeader('X-Application-Token', CaronteApplicationToken::make())
+                && $request->hasHeader('X-User-Token', $token);
+        });
+    }
+
+    public function test_provisioning_api_wraps_tenant_provisioning_endpoint(): void
+    {
+        Http::fake([
+            'https://caronte.test/api/provisioning/tenants' => Http::response([
+                'status' => 201,
+                'message' => 'Tenant provisioned',
+                'data' => [],
+            ], 201),
+        ]);
+
+        ProvisioningApi::provisionTenant([
+            'external_id' => 'external-account-1',
+            'tenant' => [
+                'name' => 'External Account',
+                'description' => 'Provisioned account',
+            ],
+            'admin' => [
+                'email' => 'owner@example.com',
+                'name' => 'Tenant Owner',
+                'password' => 'Password123!',
+            ],
+        ]);
+
+        Http::assertSent(function ($request): bool {
+            return $request->url() === 'https://caronte.test/api/provisioning/tenants'
+                && $request->method() === 'POST'
+                && $request->hasHeader('X-Application-Token', CaronteApplicationToken::make())
+                && $request['external_id'] === 'external-account-1'
+                && $request['tenant']['name'] === 'External Account'
+                && $request['admin']['email'] === 'owner@example.com';
+        });
+    }
+
+    public function test_web_json_requests_read_user_token_from_session(): void
+    {
+        $token = $this->makeToken();
+
+        Route::middleware(['web', 'caronte.session'])
+            ->get('/_caronte/web-json-session-check', fn() => response()->json(['ok' => true]));
+
+        $this->withSession([
+            config('caronte.session_key') => $token,
+        ])->get('/_caronte/web-json-session-check', [
+            'Accept' => 'application/json',
+        ])->assertOk();
+    }
+
     public function test_group_user_token_validates_with_group_secret_and_group_id(): void
     {
         config()->set('caronte.application_group_id', 'core-suite');
@@ -283,6 +409,7 @@ class AuthContractTest extends TestCase
 
         $this->assertSame('application_group', $parsed->claims()->get('token_audience'));
         $this->assertSame('core-suite', $parsed->claims()->get('group_id'));
+        $this->assertSame(sha1('source-app'), $parsed->claims()->get('app_id'));
         $this->assertSame(sha1('source-app'), $parsed->claims()->get('source_app_id'));
     }
 

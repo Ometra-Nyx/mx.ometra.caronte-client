@@ -4,12 +4,12 @@ namespace Ometra\Caronte;
 
 use Equidna\BeeHive\Tenancy\TenantContext;
 use Equidna\Toolkit\Exceptions\UnauthorizedException;
+use Equidna\Toolkit\Helpers\RouteHelper;
 use Exception;
 use Lcobucci\JWT\Token\Plain;
 use Ometra\Caronte\CaronteUserToken;
 use Ometra\Caronte\Exceptions\TenantMissingException;
 use Ometra\Caronte\Models\CaronteUser;
-use Ometra\Caronte\Support\RouteMode;
 use stdClass;
 
 final class Caronte
@@ -42,25 +42,7 @@ final class Caronte
     {
         try {
             $token = $this->getToken();
-
-            if ($token->claims()->has('user')) {
-                $user = json_decode((string) $token->claims()->get('user'));
-            } else {
-                $subject = (string) $token->claims()->get('sub', '');
-                $subjectParts = explode(':', $subject, 2);
-                $user = (object) [
-                    'uri_user' => count($subjectParts) === 2 ? $subjectParts[1] : $subject,
-                    'name' => (string) $token->claims()->get('name', ''),
-                    'email' => (string) $token->claims()->get('email', ''),
-                    'tenant_id' => $token->claims()->get('tenant_id'),
-                    'id_tenant' => $token->claims()->get('tenant_id'),
-                    'roles' => array_map(
-                        fn(string $role): object => (object) ['name' => $role],
-                        is_array($token->claims()->get('roles', [])) ? $token->claims()->get('roles', []) : []
-                    ),
-                    'metadata' => [],
-                ];
-            }
+            $user = CaronteUserToken::userPayload($token);
 
             if (!$user instanceof stdClass) {
                 throw new \RuntimeException('Invalid user payload.');
@@ -208,7 +190,7 @@ final class Caronte
 
     private function rawToken(): ?string
     {
-        if (RouteMode::wantsJson()) {
+        if (RouteHelper::isApi() || request()->is('api/*')) {
             return request()->bearerToken();
         }
 

@@ -14,7 +14,6 @@ use Ometra\Caronte\Contracts\SendsTwoFactorChallenge;
 use Ometra\Caronte\Exceptions\CaronteApiException;
 use Ometra\Caronte\Facades\Caronte;
 use Ometra\Caronte\Support\CaronteResponse;
-use Ometra\Caronte\Support\RouteMode;
 use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends BaseController
@@ -35,7 +34,7 @@ class AuthController extends BaseController
             'routes' => [
                 'login' => route('caronte.login'),
                 'logout' => route('caronte.logout'),
-                'twoFactorRequest' => route('caronte.2fa.request'),
+                'twoFactorRequest' => route('caronte.twoFactor.request'),
                 'passwordRecoverForm' => route('caronte.password.recover.form'),
             ],
         ]);
@@ -112,7 +111,7 @@ class AuthController extends BaseController
             $tokenString = (string) data_get($response, 'data.token', '');
             $token = CaronteUserToken::validateToken($tokenString, skipExchange: true);
 
-            if (RouteMode::isWeb()) {
+            if ($this->isWebRequest($request)) {
                 Caronte::saveToken($token->toString());
             }
 
@@ -200,7 +199,7 @@ class AuthController extends BaseController
             $tokenString = (string) data_get($response, 'data.token', '');
             $validatedToken = CaronteUserToken::validateToken($tokenString, skipExchange: true);
 
-            if (RouteMode::isWeb()) {
+            if ($this->isWebRequest($request)) {
                 Caronte::saveToken($validatedToken->toString());
             }
 
@@ -277,7 +276,7 @@ class AuthController extends BaseController
             );
         }
 
-        if (RouteMode::wantsJson()) {
+        if ($this->wantsJson()) {
             return CaronteResponse::success(
                 message: $response['message'],
                 data: $response['data']
@@ -383,5 +382,18 @@ class AuthController extends BaseController
         }
 
         return url($url);
+    }
+
+    private function isWebRequest(Request $request): bool
+    {
+        return ! $this->wantsJson()
+            && ! $request->is('api/*');
+    }
+
+    private function wantsJson(): bool
+    {
+        return request()->expectsJson()
+            || request()->wantsJson()
+            || request()->is('api/*');
     }
 }

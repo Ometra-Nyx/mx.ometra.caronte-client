@@ -10,6 +10,10 @@
 
 User tokens can be app-scoped or group-scoped. Group-scoped tokens are validated with `CARONTE_APPLICATION_GROUP_SECRET` and must include the configured `CARONTE_APPLICATION_GROUP_ID`.
 
+The SDK reads phase-2 top-level JWT claims first: `sub`, `aud`, `jti`, `tenant_id`, `roles`, `metadata`, `app_id`, and `token_audience`. The legacy nested `user` claim remains supported as a fallback.
+
+Logout is server-backed. The SDK web route accepts `GET` and `POST`, clears the local session, and calls the Caronte server with `POST /api/auth/logout` or `POST /api/auth/logoutAll`.
+
 ## Roles
 
 Roles are user-facing authorization values.
@@ -73,6 +77,30 @@ Group credentials only identify group membership for app-to-app calls. They do n
 
 When `caronte.update_local_user=true`, the package updates the local `CaronteUser` cache from validated user JWTs. The host app should still treat Caronte as the source of truth for user identity and role assignments.
 
+## Tenant Resolution
+
+`CaronteTenantResolver` implements Bee Hive's `TenantResolverInterface`. It resolves the tenant from the currently authenticated Caronte user by calling `Caronte::getTenantId()`.
+
+The resolver depends on a valid user JWT in the current request/session. If no user token is available, or if the token has no tenant claim, tenant resolution fails with the same auth/tenant exception path used by `Caronte::getTenantId()`.
+
+Local `CaronteUser` rows use `id_tenant` as the Bee Hive tenant key. During local user sync, the SDK temporarily binds `TenantContext` to the token tenant so `BelongsToTenant` writes and reads the correct local tenant cache.
+
+## Provisioning
+
+`ProvisioningApi::provisionTenant()` wraps `POST /api/provisioning/tenants`. Use it only from trusted server-side code configured with an application that has the Caronte platform permission `tenants.provision`.
+
 ## Management UI
 
 The package's management UI remains app-local. The global Caronte administration console lives in `mx.ometra.caronte-admin` and manages tenants, applications, groups, application tokens, and global admin workflows.
+
+The app-local management UI supports Blade by default and Inertia when `caronte.management.use_inertia=true`. The Inertia components are published with `php artisan vendor:publish --tag=caronte:inertia`; host apps are responsible for compiling those assets in their own frontend pipeline.
+
+## Local Helper APIs
+
+`CaronteUserHelper` is a read-only helper for the local user cache:
+
+- `getUserName($uriUser)` returns the cached user's name or `User not found`.
+- `getUserEmail($uriUser)` returns the cached user's email or `User not found`.
+- `getUserMetadata($uriUser, $key)` returns the cached metadata value or `null`.
+
+The helper reads the local `CaronteUser` and `CaronteUserMetadata` models, so Bee Hive tenant context applies. Use it only after the request has an authenticated tenant context or after explicitly binding `TenantContext`.

@@ -120,7 +120,7 @@ class CaronteResponse
         array $headers = [],
         ?string $forwardUrl = null
     ): JsonResponse|RedirectResponse {
-        if (RouteMode::wantsJson()) {
+        if (static::wantsJson()) {
             return static::json($status, $message, $errors, $data, $headers);
         }
 
@@ -193,6 +193,19 @@ class CaronteResponse
         }
 
         return $message;
+    }
+
+    private static function wantsJson(): bool
+    {
+        if (! app()->bound('request')) {
+            return false;
+        }
+
+        $request = request();
+
+        return $request->expectsJson()
+            || $request->wantsJson()
+            || $request->is('api/*');
     }
 
     private static function sanitizeErrors(int $status, array $errors): array

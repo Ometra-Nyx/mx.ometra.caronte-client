@@ -15,13 +15,13 @@ $managementRoles = implode(',', \Ometra\Caronte\Support\ConfiguredRoles::accessR
 Route::prefix($authPrefix)->name('caronte.')->group(function () use ($loginPath): void {
     Route::get($loginPath, [AuthController::class, 'loginForm'])->name('login.form');
     Route::post($loginPath, [AuthController::class, 'login'])->name('login');
-    Route::post('logout', [AuthController::class, 'logout'])->name('logout');
+    Route::match(['get', 'post'], 'logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('oidc/login', [OidcAuthController::class, 'redirect'])->name('oidc.login');
     Route::get('oidc/callback', [OidcAuthController::class, 'callback'])->name('oidc.callback');
     Route::post('oidc/logout', [OidcAuthController::class, 'logout'])->name('oidc.logout');
 
-    Route::post('2fa', [AuthController::class, 'twoFactorTokenRequest'])->name('2fa.request');
-    Route::get('2fa/{token}', [AuthController::class, 'twoFactorTokenLogin'])->name('2fa.login');
+    Route::post('two-factor', [AuthController::class, 'twoFactorTokenRequest'])->name('twoFactor.request');
+    Route::get('two-factor/{token}', [AuthController::class, 'twoFactorTokenLogin'])->name('twoFactor.login');
 
     Route::prefix('password/recover')->name('password.recover.')->group(function (): void {
         Route::get('', [AuthController::class, 'passwordRecoverRequestForm'])->name('form');

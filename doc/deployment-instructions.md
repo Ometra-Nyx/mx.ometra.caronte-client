@@ -32,7 +32,7 @@ This creates `config/caronte.php` in the host application.
 
 ### 2.2 Required environment variables
 
-Only three secrets belong in `.env`:
+At minimum, these values must be configured in `.env`:
 
 ```env
 CARONTE_URL=https://your-caronte-server.example.com
@@ -46,8 +46,11 @@ CARONTE_APP_SECRET=a-strong-secret-at-least-32-chars
 | `CARONTE_APP_CN` | Yes | Canonical name that identifies this application in Caronte |
 | `CARONTE_APP_SECRET` | Yes | Shared secret for application token generation |
 | `CARONTE_ISSUER_ID` | No | Overrides JWT issuer claim validation |
+| `CARONTE_APPLICATION_GROUP_ID` | No | Application group id for grouped user/app tokens |
+| `CARONTE_APPLICATION_GROUP_SECRET` | No | Group secret for grouped user/app tokens |
+| `CARONTE_AUTH_MODE` | No | `legacy`, `oidc`, or `dual` |
 
-> All other configuration lives in `config/caronte.php` with hardcoded defaults. Do **not** add feature flags to `.env`.
+Most options have defaults in `config/caronte.php`. Use environment variables for deployment-specific values such as OIDC mode, TLS policy, management exposure, and notification delivery.
 
 ### 2.3 Key configuration options (excerpt)
 
@@ -56,14 +59,14 @@ return [
     'use_2fa'               => false,        // Enable two-factor authentication
     'allow_http_requests'   => false,        // Allow non-TLS (dev only)
     'tls_verify'            => true,         // Verify TLS certificates
-    'update_local_user'     => true,         // Sync user to local DB on login
+    'update_local_user'     => false,        // Sync user to local DB after token validation
 
     // 'server': Caronte sends; 'host': this app sends via Mailable classes
     'notification_delivery' => 'server',
 
     'routes_prefix' => 'caronte',
     'success_url'   => '/',
-    'login_url'     => '/caronte/login',
+    'login_url'     => '/login',
 
     'http' => [
         'timeout'     => 10,   // seconds
@@ -129,6 +132,8 @@ php artisan vendor:publish --tag=caronte:migrations
 php artisan vendor:publish --tag=caronte
 ```
 
+When `caronte.management.use_inertia=true`, publish `caronte:inertia` and compile the copied components from the host application's frontend build. Blade mode does not require those Inertia assets.
+
 ---
 
 ## 5. Middleware
@@ -140,6 +145,8 @@ Three aliases are registered automatically by `CaronteServiceProvider`:
 | `caronte.session` | `ValidateUserToken` | Validates and auto-renews the user JWT |
 | `caronte.roles` | `ValidateUserRoles` | Checks the user has the specified roles |
 | `caronte.application` | `ResolveApplicationContext` | Validates incoming application tokens |
+| `caronte.app-token` | `ValidateApplicationAccessToken` | Validates tenant-bound `ApplicationToken` JWTs |
+| `caronte.app-permissions` | `ValidateApplicationPermissions` | Checks permissions on validated `ApplicationToken` JWTs |
 
 ```php
 // Auth guard
@@ -195,6 +202,7 @@ php artisan caronte:roles:sync
 - [ ] `php artisan migrate` completed
 - [ ] `php artisan caronte:roles:sync` completed
 - [ ] Management UI accessible at `/{management.route_prefix}`
-- [ ] At least one user linked to `admin` (or configured access role) via `caronte:users:roles:sync`
+- [ ] If using Inertia management UI, `caronte:inertia` assets are published and compiled by the host app
+- [ ] At least one user linked to `root` or a configured management access role via `caronte:users:roles:sync`
 - [ ] `tls_verify = true` for production
 - [ ] `allow_http_requests = false` for production
