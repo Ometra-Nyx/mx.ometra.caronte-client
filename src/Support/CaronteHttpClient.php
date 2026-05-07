@@ -63,6 +63,7 @@ abstract class CaronteHttpClient
         array $query = [],
     ): array {
         return $this->request($method, $endpoint, $payload, $query, [
+            'X-Application-Token' => $this->makeApplicationToken(),
             'X-User-Token' => Caronte::getToken()->toString(),
         ]);
     }

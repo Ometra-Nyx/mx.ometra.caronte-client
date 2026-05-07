@@ -298,7 +298,7 @@ class AuthContractTest extends TestCase
         ], TestPasswordRecoverySender::$sent);
     }
 
-    public function test_user_request_injects_current_user_token(): void
+    public function test_user_request_injects_application_and_current_user_tokens(): void
     {
         $token = $this->makeToken();
 
@@ -325,7 +325,7 @@ class AuthContractTest extends TestCase
 
         Http::assertSent(function ($request) use ($token): bool {
             return $request->url() === 'https://caronte.test/api/auth/current-user'
-                && !$request->hasHeader('X-Application-Token')
+                && $request->hasHeader('X-Application-Token', CaronteApplicationToken::make())
                 && $request->hasHeader('X-User-Token', $token);
         });
     }
