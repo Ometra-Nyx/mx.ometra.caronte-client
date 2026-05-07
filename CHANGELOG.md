@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - No changes yet.
 
+## [3.2.1] - 2026-05-07
+
+### Changed
+
+- **`X-Application-Token` added to user requests** — `CaronteHttpClient::userRequest()` now includes the `X-Application-Token` header alongside `X-User-Token` on every user-authenticated API call. This ensures the Caronte server can verify both the calling application and the requesting user in a single round-trip, strengthening the trust chain for all user-context API operations.
+
 ## [3.2.0] - 2026-05-06 "Hermes"
 
 ### Added
