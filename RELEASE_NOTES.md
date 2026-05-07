@@ -1,3 +1,54 @@
+# Release v3.2.1
+
+> **Release date:** 2026-05-07
+> **Type:** Patch — backwards-compatible security improvement.
+
+---
+
+## Summary
+
+v3.2.1 delivers a targeted security hardening to the Caronte SDK's HTTP layer. Every user-authenticated API call made through `CaronteHttpClient::userRequest()` now includes both the `X-Application-Token` and the `X-User-Token` headers. Previously only `X-User-Token` was sent, which meant the Caronte server could not simultaneously verify the calling application's identity during user-context operations. This patch closes that gap without requiring any host-application changes.
+
+---
+
+## Highlights
+
+- **Dual-token user requests** — `CaronteHttpClient::userRequest()` now sends `X-Application-Token` alongside `X-User-Token`, strengthening the trust chain for all user-context API calls.
+- **Test coverage updated** — `AuthContractTest` updated to assert both tokens are present in user requests.
+
+---
+
+## Changed
+
+### `X-Application-Token` Added to User Requests
+
+`CaronteHttpClient::userRequest()` previously sent only the `X-User-Token` header. Starting with v3.2.1 it also sends the `X-Application-Token`, derived from the configured application credentials.
+
+**Before (≤ v3.2.0):**
+
+```php
+// Only user token was forwarded
+'X-User-Token' => Caronte::getToken()->toString()
+```
+
+**After (v3.2.1):**
+
+```php
+// Both application and user tokens are forwarded
+'X-Application-Token' => $this->makeApplicationToken(),
+'X-User-Token'        => Caronte::getToken()->toString(),
+```
+
+No configuration changes or host-application code changes are required. The `CARONTE_APP_CN` and `CARONTE_APP_SECRET` credentials already in use for app-level requests are reused here.
+
+---
+
+## Full History
+
+See [CHANGELOG.md](CHANGELOG.md) for the complete project history.
+
+---
+
 # Release v3.2.0 "Hermes"
 
 > **Release date:** 2026-05-06
