@@ -1,3 +1,104 @@
+# Release v3.2.0 "Hermes"
+
+> **Release date:** 2026-05-06
+> **Type:** Minor — new features added backwards-compatibly.
+> One internal class removal requires attention if referenced directly. See [BREAKING_CHANGES.md](BREAKING_CHANGES.md).
+
+---
+
+## Summary
+
+v3.2.0 "Hermes" delivers three focused improvements to the Caronte SDK: **multi-tenant login support**, **phase-2 (flat) JWT claim parsing**, and a **new provisioning API client**. Host applications with multi-tenant user bases can now present a tenant picker at login time without any custom controller logic. The phase-2 JWT changes introduce a flatter claim structure that coexists transparently with the legacy `user` nested claim — no migration required for existing tokens. Server-side tenant provisioning is now first-class through the new `ProvisioningApi`.
+
+The codename _Hermes_ — the messenger god who moved freely between realms and delivered messages between mortals and gods — captures the theme of this release: bridging multiple tenant realms at login, carrying phase-2 claims between client and server, and provisioning new tenants through a dedicated message channel.
+
+---
+
+## Highlights
+
+- **Multi-tenant login** — automatic tenant picker when a user belongs to multiple tenants; 409 `tenant_selection_required` handled gracefully out of the box.
+- **Phase-2 JWT claims** — `CaronteUserToken::userPayload()` reads flat top-level claims (`sub`, `tenant_id`, `roles`, `metadata`) while falling back to legacy nested `user` claim.
+- **`ProvisioningApi`** — `provisionTenant()` triggers server-side tenant provisioning; `AuthApi` updated for new two-factor and logout endpoints.
+- **`.editorconfig` / `.gitattributes`** — repository-wide tooling rules for consistent formatting and line endings.
+- **`RouteMode` removed** — `Ometra\Caronte\Support\RouteMode` replaced by inline `Request` detection. See [BREAKING_CHANGES.md](BREAKING_CHANGES.md).
+
+---
+
+## Added
+
+### Multi-Tenant Login Flow
+
+When the Caronte server returns HTTP 409 `tenant_selection_required`, the SDK now handles it automatically:
+
+| Component                           | Responsibility                                                |
+| ----------------------------------- | ------------------------------------------------------------- |
+| `AuthController`                    | Reads `tenant_options` from session; exposes them to view/SPA |
+| `AuthApi::login()`                  | Accepts optional `$tenantId`; includes it in sign-in payload  |
+| `CaronteResponse::conflict()`       | Returns 409 responses (JSON or redirect) with tenant data     |
+| `CaronteResponse::redirectErrors()` | Shapes session error data before redirect                     |
+| React login form                    | Renders tenant dropdown when `tenant_options` present         |
+| Blade login view                    | Renders tenant dropdown when `tenant_options` present         |
+
+### Phase-2 JWT Claims
+
+`CaronteUserToken::userPayload()` now prefers the phase-2 flat claim structure:
+
+```json
+{
+    "sub": "user-uuid",
+    "tenant_id": "tenant-uuid",
+    "roles": ["admin"],
+    "metadata": {}
+}
+```
+
+Falls back to the legacy nested structure if `sub` is absent:
+
+```json
+{
+    "user": {
+        "id": "user-uuid",
+        "tenant_id": "tenant-uuid",
+        "roles": ["admin"]
+    }
+}
+```
+
+No code changes required in host applications for either structure.
+
+### Provisioning API
+
+```php
+// New ProvisioningApi client
+$api = new ProvisioningApi();
+$api->provisionTenant($tenantId);
+```
+
+---
+
+## Changed
+
+- `CaronteUserHelper` metadata lookup now uses the `DB` facade directly.
+- `AuthApi` updated for new two-factor endpoints and includes the user token on logout calls.
+- Request-based JSON/web detection inlined; `RouteMode` static helper removed.
+- Route prefix and login URL config defaults updated.
+- Documentation updated: `api-documentation.md`, `business-logic-and-core-processes.md`, `deployment-instructions.md`, `routes-documentation.md`, `tests-documentation.md`.
+
+---
+
+## Removed
+
+- `Ometra\Caronte\Support\RouteMode` — see [BREAKING_CHANGES.md](BREAKING_CHANGES.md) for migration.
+
+---
+
+## Full History
+
+- [CHANGELOG.md](CHANGELOG.md) — complete project history.
+- [BREAKING_CHANGES.md](BREAKING_CHANGES.md) — migration guides for all breaking changes.
+
+---
+
 # Release v3.1.0 "Aegis"
 
 > **Release date:** 2026-05-04

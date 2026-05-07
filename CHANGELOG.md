@@ -11,38 +11,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - No changes yet.
 
+## [3.2.0] - 2026-05-06 "Hermes"
+
+### Added
+
+- **Tenant selection flow** — multi-tenant users are now guided through a tenant picker at login time.
+    - `AuthController` reads `tenant_options` from session and exposes them to the view/SPA.
+    - `AuthApi::login()` accepts an optional `$tenantId` parameter and includes it in the sign-in payload.
+    - 409 `tenant_selection_required` responses are handled gracefully: the controller returns a conflict response with tenant data and keeps the user on the login page.
+    - `CaronteResponse::conflict()` — new helper for returning 409 conflict responses (JSON or redirect).
+    - `CaronteResponse::redirectErrors()` — new helper that shapes session errors correctly before a redirect.
+    - React login form (`resources/js/Pages/auth/login.jsx`) and Blade login view (`resources/views/auth/login.blade.php`) both render a tenant dropdown when `tenant_options` are provided.
+    - New feature tests cover the tenant-selection redirect and tenant forwarding to the Caronte API.
+- **Phase-2 (flat) JWT claim structure** — `CaronteUserToken::userPayload()` now reads top-level JWT claims (`sub`, `tenant_id`, `roles`, `metadata`, etc.) while keeping the legacy nested `user` claim as a fallback.
+    - `Caronte::getUser()` updated to use the new `userPayload()` method.
+    - Both claim structures are supported transparently; no host-application change is required for legacy tokens.
+- **`ProvisioningApi`** — new API client for server-side tenant provisioning.
+    - `ProvisioningApi::provisionTenant()` — triggers tenant provisioning on the Caronte server.
+    - `AuthApi` updated to use the new two-factor endpoints and to include the user token when calling logout.
+- **`.editorconfig`** — enforces UTF-8 encoding, LF line endings, 4-space indentation (2 spaces for YAML/JSON), and trailing-newline rules across the repository.
+- **`.gitattributes`** — enables consistent text normalization, sets diff drivers for common file types, and marks binary formats correctly.
+
+### Changed
+
+- **Request-based JSON/web detection** — `RouteMode` static helper replaced with direct `Request`-based detection inline in `CaronteResponse`, `AuthController`, `ValidateUserToken`, and related middleware. Removes tight coupling to a static singleton and makes the detection testable.
+- `CaronteUserHelper` metadata lookup now uses the `DB` facade directly instead of going through the model layer, improving consistency under multi-tenant DB contexts.
+- Routes prefix and login URL config defaults updated to reflect new management/Inertia conventions.
+- Documentation suite (`doc/`) updated across multiple files:
+    - `api-documentation.md` — documents `ProvisioningApi`, phase-2 claim parsing, and updated `AuthApi` endpoints.
+    - `business-logic-and-core-processes.md` — covers tenant-selection flow and phase-2 JWT handling.
+    - `deployment-instructions.md` — updated deployment notes.
+    - `routes-documentation.md` — reflects route prefix changes.
+    - `tests-documentation.md` — updated for new tests (tenant selection, provisioning, open-questions suite).
+- `README.md` — minor copy cleanup (removed stray BOM character from header).
+
+### Removed
+
+- **`Support/RouteMode.php`** — the `Ometra\Caronte\Support\RouteMode` class has been removed. Its functionality is now handled inline via `Request` methods. See [BREAKING_CHANGES.md](BREAKING_CHANGES.md) for migration guidance.
+
 ## [3.1.0] - 2026-05-04 "Aegis"
 
 ### Added
 
 - **OpenID Connect (OIDC) authentication** — full OIDC/OAuth 2.0 authorization code flow with PKCE support.
-  - `OidcAuthController` — handles authorization redirect, callback/token exchange, and logout.
-  - `Oidc/OidcClient` — authorization URL construction, authorization-code exchange, and token refresh.
-  - `Oidc/OidcTokenValidator` — validates OIDC ID tokens against a JWKS endpoint.
-  - `Oidc/JwksCache` — fetches and caches the Caronte server JWKS; TTL configurable via `CARONTE_OIDC_JWKS_CACHE_TTL`.
-  - `Oidc/Jwk` — parses a JWK entry and verifies RS256 signatures.
-  - `Oidc/Pkce` — generates PKCE `code_verifier` and S256 `code_challenge` pairs.
-  - `Oidc/Base64Url` — URL-safe Base64 encode/decode helper.
-  - `CaronteUserToken` now selects the correct validator (`legacy`, `oidc`, or `dual`) based on `config('caronte.auth_mode')` and the token `kid` header.
-  - `Caronte::getUser()` extended to build a user object from standard OIDC claims (`sub`, `name`, `email`, `email_verified`) when the legacy `user` claim is absent.
-  - `AuthController` redirects to the OIDC authorization endpoint when `auth_mode` is `oidc` or `dual`.
-  - New routes registered under `caronte/oidc/*` for the OIDC flow.
+    - `OidcAuthController` — handles authorization redirect, callback/token exchange, and logout.
+    - `Oidc/OidcClient` — authorization URL construction, authorization-code exchange, and token refresh.
+    - `Oidc/OidcTokenValidator` — validates OIDC ID tokens against a JWKS endpoint.
+    - `Oidc/JwksCache` — fetches and caches the Caronte server JWKS; TTL configurable via `CARONTE_OIDC_JWKS_CACHE_TTL`.
+    - `Oidc/Jwk` — parses a JWK entry and verifies RS256 signatures.
+    - `Oidc/Pkce` — generates PKCE `code_verifier` and S256 `code_challenge` pairs.
+    - `Oidc/Base64Url` — URL-safe Base64 encode/decode helper.
+    - `CaronteUserToken` now selects the correct validator (`legacy`, `oidc`, or `dual`) based on `config('caronte.auth_mode')` and the token `kid` header.
+    - `Caronte::getUser()` extended to build a user object from standard OIDC claims (`sub`, `name`, `email`, `email_verified`) when the legacy `user` claim is absent.
+    - `AuthController` redirects to the OIDC authorization endpoint when `auth_mode` is `oidc` or `dual`.
+    - New routes registered under `caronte/oidc/*` for the OIDC flow.
 - **Application-group tokens** — group-level server-to-server authentication.
-  - `CaronteApplicationAccessToken` — generates and validates application-group tokens using `CARONTE_APPLICATION_GROUP_ID` + `CARONTE_APPLICATION_GROUP_SECRET`.
-  - `CaronteApplicationAccessContext` — HTTP context object bound into the container on successful group-token validation.
-  - `ValidateApplicationAccessToken` middleware (`caronte.app-token` alias) — validates the `X-Application-Access-Token` header and binds `CaronteApplicationAccessContext`.
-  - `ValidateApplicationAccessPermissions` middleware (`caronte.app-permissions` alias) — asserts that the bound `CaronteApplicationAccessContext` carries the required permissions.
-  - `CaronteApplicationToken` updated to match and emit group context.
-  - `CaronteUserToken` updated to support group-signed tokens.
-  - `ResolveApplicationContext` updated to populate group context when present.
+    - `CaronteApplicationAccessToken` — generates and validates application-group tokens using `CARONTE_APPLICATION_GROUP_ID` + `CARONTE_APPLICATION_GROUP_SECRET`.
+    - `CaronteApplicationAccessContext` — HTTP context object bound into the container on successful group-token validation.
+    - `ValidateApplicationAccessToken` middleware (`caronte.app-token` alias) — validates the `X-Application-Access-Token` header and binds `CaronteApplicationAccessContext`.
+    - `ValidateApplicationAccessPermissions` middleware (`caronte.app-permissions` alias) — asserts that the bound `CaronteApplicationAccessContext` carries the required permissions.
+    - `CaronteApplicationToken` updated to match and emit group context.
+    - `CaronteUserToken` updated to support group-signed tokens.
+    - `ResolveApplicationContext` updated to populate group context when present.
 - **Permission synchronisation** — declarative permission management.
-  - `PermissionApi` — API client for Caronte permission endpoints.
-  - `ConfiguredPermissions` helper — encapsulates `config('caronte.permissions')` logic.
-  - `caronte:permissions:sync [--dry-run]` Artisan command — syncs configured permissions to the Caronte server.
+    - `PermissionApi` — API client for Caronte permission endpoints.
+    - `ConfiguredPermissions` helper — encapsulates `config('caronte.permissions')` logic.
+    - `caronte:permissions:sync [--dry-run]` Artisan command — syncs configured permissions to the Caronte server.
 - New config keys in `config/caronte.php`:
-  - `application_group_id` / `application_group_secret` — group credentials (from `CARONTE_APPLICATION_GROUP_ID` / `CARONTE_APPLICATION_GROUP_SECRET`).
-  - `auth_mode` — `legacy` (default), `oidc`, or `dual`; controls which token validator is used.
-  - `oidc.issuer`, `oidc.client_id`, `oidc.client_secret`, `oidc.redirect_uri`, `oidc.scopes`, `oidc.jwks_cache_ttl` — full OIDC client configuration.
+    - `application_group_id` / `application_group_secret` — group credentials (from `CARONTE_APPLICATION_GROUP_ID` / `CARONTE_APPLICATION_GROUP_SECRET`).
+    - `auth_mode` — `legacy` (default), `oidc`, or `dual`; controls which token validator is used.
+    - `oidc.issuer`, `oidc.client_id`, `oidc.client_secret`, `oidc.redirect_uri`, `oidc.scopes`, `oidc.jwks_cache_ttl` — full OIDC client configuration.
 - New Feature tests: group-token validation, `ValidateApplicationAccessToken` and `ValidateApplicationAccessPermissions` middleware behaviour, `caronte:permissions:sync` command.
 - `.env.example` updated with `CARONTE_APPLICATION_GROUP_ID` and `CARONTE_APPLICATION_GROUP_SECRET`.
 
@@ -51,11 +89,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `equidna/bee-hive` constraint bumped from `>=2.0` to `^3.0` — requires BeeHive 3.x; see dependency note below.
 - `Caronte::syncUser()` now binds a `TenantContext` during local DB operations, ensuring tenant-scoped writes are consistent with the active BeeHive context.
 - Documentation suite (`doc/`) comprehensively updated:
-  - `api-documentation.md` — covers `CaronteApiClient`, all API clients, application credentials (individual and group tokens), incoming middleware, and context objects.
-  - `artisan-commands.md` — adds `caronte:permissions:sync` documentation.
-  - `business-logic-and-core-processes.md` — updated for application-token flows and permission synchronisation.
-  - `routes-documentation.md` — covers new OIDC routes and application-token middleware routes.
-  - `tests-documentation.md` — reflects new test helpers and group-token/middleware test coverage.
+    - `api-documentation.md` — covers `CaronteApiClient`, all API clients, application credentials (individual and group tokens), incoming middleware, and context objects.
+    - `artisan-commands.md` — adds `caronte:permissions:sync` documentation.
+    - `business-logic-and-core-processes.md` — updated for application-token flows and permission synchronisation.
+    - `routes-documentation.md` — covers new OIDC routes and application-token middleware routes.
+    - `tests-documentation.md` — reflects new test helpers and group-token/middleware test coverage.
 - `README.md` updated with a Token Types reference section and OIDC quick-start.
 
 ### Dependency Note
@@ -143,27 +181,27 @@ See `BREAKING_CHANGES.md` for full migration guidance.
 - `PasswordRecoveryMail` and `TwoFactorChallengeMail` mailables for host-side email delivery (`CARONTE_NOTIFICATION_DELIVERY=host`).
 - `LaravelPasswordRecoverySender` and `LaravelTwoFactorChallengeSender` notification sender implementations.
 - New Artisan commands (replacing the legacy monolithic command set):
-  - `caronte:admin` — interactive TUI menu.
-  - `caronte:roles:sync [--dry-run]` — syncs configured roles to the Caronte server.
-  - `caronte:users:list [--tenant=] [--search=] [--all]` — lists users.
-  - `caronte:users:create [--tenant=] [--name=] [--email=] [--password=] [--role=]*` — creates a user.
-  - `caronte:users:update [--tenant=] [--uri-user=] [--name=]` — updates a user.
-  - `caronte:users:delete [--tenant=] [--uri-user=]` — deletes a user.
-  - `caronte:users:roles:sync [--tenant=] [--uri-user=] [--role=]*` — syncs roles for a user.
+    - `caronte:admin` — interactive TUI menu.
+    - `caronte:roles:sync [--dry-run]` — syncs configured roles to the Caronte server.
+    - `caronte:users:list [--tenant=] [--search=] [--all]` — lists users.
+    - `caronte:users:create [--tenant=] [--name=] [--email=] [--password=] [--role=]*` — creates a user.
+    - `caronte:users:update [--tenant=] [--uri-user=] [--name=]` — updates a user.
+    - `caronte:users:delete [--tenant=] [--uri-user=]` — deletes a user.
+    - `caronte:users:roles:sync [--tenant=] [--uri-user=] [--role=]*` — syncs roles for a user.
 - Management UI user-detail view (`management/user-detail`) for both Blade and Inertia rendering.
 - `users_table` migration: added `id_tenant` column for BeeHive tenant association.
 - Comprehensive documentation suite in `doc/`:
-  - `deployment-instructions.md`
-  - `api-documentation.md`
-  - `routes-documentation.md`
-  - `artisan-commands.md`
-  - `tests-documentation.md`
-  - `architecture-diagrams.md` (C4, container, component, and sequence diagrams)
-  - `monitoring.md`
-  - `business-logic-and-core-processes.md`
-  - `open-questions-and-assumptions.md`
+    - `deployment-instructions.md`
+    - `api-documentation.md`
+    - `routes-documentation.md`
+    - `artisan-commands.md`
+    - `tests-documentation.md`
+    - `architecture-diagrams.md` (C4, container, component, and sequence diagrams)
+    - `monitoring.md`
+    - `business-logic-and-core-processes.md`
+    - `open-questions-and-assumptions.md`
 - 9 focused Feature tests replacing the previous smoke-test suite:
-  - `AuthContractTest`, `CommandBehaviorTest`, `CommandBehaviorWhenManagementDisabledTest`, `ConfigurationValidationTest`, `ManagementUiTest`, `ManagementUiWhenDisabledTest`, `MiddlewareBehaviorTest`, `RouteRegistrationTest`, `RouteRegistrationWhenDisabledTest`.
+    - `AuthContractTest`, `CommandBehaviorTest`, `CommandBehaviorWhenManagementDisabledTest`, `ConfigurationValidationTest`, `ManagementUiTest`, `ManagementUiWhenDisabledTest`, `MiddlewareBehaviorTest`, `RouteRegistrationTest`, `RouteRegistrationWhenDisabledTest`.
 - `.env.example` updated with all supported environment variables.
 
 ### Changed
@@ -249,10 +287,10 @@ See `BREAKING_CHANGES.md` for full migration guidance.
 ### Added
 
 - Added package smoke tests with Testbench:
-  - `tests/Feature/RoutesSmokeTest.php`
-  - `tests/Feature/PublishCommandsTest.php` (8 tests validating publish command infrastructure)
-  - `tests/TestCase.php`
-  - `phpunit.xml.dist`
+    - `tests/Feature/RoutesSmokeTest.php`
+    - `tests/Feature/PublishCommandsTest.php` (8 tests validating publish command infrastructure)
+    - `tests/TestCase.php`
+    - `phpunit.xml.dist`
 - Added `UserController::store()` as REST alias forwarding to `create()` for route compatibility.
 - **Test Coverage**: 11 tests with 62 assertions ensure routes are properly registered and publish commands are configured correctly.
 
@@ -309,23 +347,23 @@ See `BREAKING_CHANGES.md` for full migration guidance.
 ### Removed
 
 - Removed unused imports across 6 files:
-  - `AttachRoles.php`: `Illuminate\Support\Str`
-  - `ManagementUsers.php`: `CaronteRoleManager`, `Illuminate\Support\Str`
-  - `ManagementRoles.php`: `Illuminate\Support\Str`
-  - `DeleteRolesUser.php`: `Illuminate\Support\Str`
-  - `PermissionHelper.php`: `Equidna\Toolkit\Exceptions\UnauthorizedException`
+    - `AttachRoles.php`: `Illuminate\Support\Str`
+    - `ManagementUsers.php`: `CaronteRoleManager`, `Illuminate\Support\Str`
+    - `ManagementRoles.php`: `Illuminate\Support\Str`
+    - `DeleteRolesUser.php`: `Illuminate\Support\Str`
+    - `PermissionHelper.php`: `Equidna\Toolkit\Exceptions\UnauthorizedException`
 - Removed unused config keys from `config/caronte.php`:
-  - `queue_connection`
-  - `queue_name`
+    - `queue_connection`
+    - `queue_name`
 
 ### Documentation
 
 - Updated README.md:
-  - Corrected all console command names and signatures
-  - Improved feature descriptions
-  - Added installation instructions
-  - Clarified user workflow requirements
-  - Updated command tables with accurate names
+    - Corrected all console command names and signatures
+    - Improved feature descriptions
+    - Added installation instructions
+    - Clarified user workflow requirements
+    - Updated command tables with accurate names
 
 ## [1.3.4] - Previous Release
 
