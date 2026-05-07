@@ -7,6 +7,7 @@ use DateTimeZone;
 use Equidna\Toolkit\Exceptions\BadRequestException;
 use Equidna\Toolkit\Exceptions\UnprocessableEntityException;
 use Illuminate\Support\Arr;
+use Illuminate\Http\Request;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Hmac\Sha256;
 use Lcobucci\JWT\Signer\Key\InMemory;
@@ -19,8 +20,8 @@ use Ometra\Caronte\Facades\Caronte;
 use Ometra\Caronte\Oidc\Base64Url;
 use Ometra\Caronte\Oidc\OidcTokenValidator;
 use Ometra\Caronte\Support\CaronteApplicationToken;
-use Ometra\Caronte\Support\RouteMode;
 use RuntimeException;
+use stdClass;
 
 final class CaronteUserToken
 {
@@ -50,7 +51,7 @@ final class CaronteUserToken
         static::assertNotBefore($token);
 
         if (config('caronte.update_local_user')) {
-            Caronte::updateUserData((string) $token->claims()->get('user'));
+            Caronte::updateUserData(static::userPayload($token));
         }
 
         return $token;
@@ -75,7 +76,7 @@ final class CaronteUserToken
 
             $token = static::validateToken($tokenString, skipExchange: true);
 
-            if (RouteMode::isWeb()) {
+            if (static::isWebRequest()) {
                 Caronte::saveToken($token->toString());
             }
 
@@ -110,7 +111,7 @@ final class CaronteUserToken
             throw new BadRequestException('Invalid token');
         }
 
-        if (!$token->claims()->has('user')) {
+        if (!$token->claims()->has('user') && !$token->claims()->has('sub')) {
             throw new UnprocessableEntityException('Invalid token');
         }
 
@@ -119,6 +120,27 @@ final class CaronteUserToken
         }
 
         return $token;
+    }
+
+    public static function userPayload(Plain $token): stdClass
+    {
+        if (static::hasExplicitUserClaims($token)) {
+            return static::explicitUserPayload($token);
+        }
+
+        $rawUser = $token->claims()->get('user', '');
+
+        if (!is_string($rawUser) || $rawUser === '') {
+            throw new UnprocessableEntityException('Invalid token user payload');
+        }
+
+        $user = json_decode($rawUser);
+
+        if (!$user instanceof stdClass) {
+            throw new UnprocessableEntityException('Invalid token user payload');
+        }
+
+        return $user;
     }
 
     private static function shouldUseOidc(string $rawToken): bool
@@ -142,6 +164,46 @@ final class CaronteUserToken
         $header = json_decode((string) Base64Url::decode($parts[0]), true);
 
         return is_array($header) && isset($header['kid']);
+    }
+
+    private static function hasExplicitUserClaims(Plain $token): bool
+    {
+        return $token->claims()->has('sub');
+    }
+
+    private static function explicitUserPayload(Plain $token): stdClass
+    {
+        $subject = (string) $token->claims()->get('sub', '');
+        $subjectParts = explode(':', $subject, 2);
+        $tenantId = $token->claims()->get('tenant_id');
+
+        $user = new stdClass();
+        $user->uri_user = count($subjectParts) === 2 ? $subjectParts[1] : $subject;
+        $user->name = (string) $token->claims()->get('name', '');
+        $user->email = (string) $token->claims()->get('email', '');
+        $user->tenant_id = $tenantId;
+        $user->id_tenant = $tenantId;
+        $user->roles = static::normalizeClaimItems($token->claims()->get('roles', []));
+        $user->metadata = static::normalizeClaimItems($token->claims()->get('metadata', []));
+
+        return $user;
+    }
+
+    /**
+     * @return list<object>
+     */
+    private static function normalizeClaimItems(mixed $items): array
+    {
+        if (!is_array($items)) {
+            return [];
+        }
+
+        return array_values(array_map(
+            fn(mixed $item): object => is_array($item)
+                ? (object) $item
+                : (is_object($item) ? $item : (object) ['name' => (string) $item]),
+            $items
+        ));
     }
 
     public static function getConfig(): Configuration
@@ -244,6 +306,23 @@ final class CaronteUserToken
 
         return $expiresAt instanceof DateTimeImmutable
             && $expiresAt <= new DateTimeImmutable('now', new DateTimeZone('UTC'));
+    }
+
+    private static function isWebRequest(): bool
+    {
+        if (! app()->bound('request')) {
+            return false;
+        }
+
+        $request = request();
+
+        if (! $request instanceof Request) {
+            return false;
+        }
+
+        return ! $request->expectsJson()
+            && ! $request->wantsJson()
+            && ! $request->is('api/*');
     }
 
     private static function configForToken(Plain $token): Configuration

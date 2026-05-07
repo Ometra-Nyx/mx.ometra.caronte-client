@@ -1,5 +1,51 @@
 # Breaking Changes
 
+## v3.2.0
+
+### What Changed
+
+1. **`Support/RouteMode` class removed** — `Ometra\Caronte\Support\RouteMode` no longer exists. The class was an internal helper that detected whether a request expected a JSON or web (HTML) response. Its functionality has been inlined directly into `CaronteResponse`, `AuthController`, and middleware using standard Laravel `Request` methods.
+
+### Why
+
+`RouteMode` was marked internally as a candidate for removal (see the `// NOTE FIND ANOTHER WAY...` comment in the class). It was a `static`-only helper with no test coverage and introduced tight coupling between unrelated classes. Inlining the detection eliminates the coupling and makes behaviour testable per call-site.
+
+### Migration: `RouteMode` Removal
+
+If your host application directly references `Ometra\Caronte\Support\RouteMode`, replace it with equivalent `Request` calls:
+
+**Before (≤ v3.1.0)**
+
+```php
+use Ometra\Caronte\Support\RouteMode;
+
+if (RouteMode::wantsJson()) {
+    return response()->json($data);
+}
+
+if (RouteMode::isWeb()) {
+    return redirect()->back();
+}
+```
+
+**After (v3.2.0+)**
+
+```php
+// Inject or resolve the current request
+$request = request();
+
+if ($request->expectsJson() || $request->wantsJson() || $request->is('api/*')) {
+    return response()->json($data);
+}
+
+// "isWeb" is simply the inverse of wantsJson
+return redirect()->back();
+```
+
+> If you were not importing `RouteMode` directly in your host application, no changes are required.
+
+---
+
 ## v3.1.0
 
 ### What Changed

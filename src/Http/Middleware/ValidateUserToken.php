@@ -3,7 +3,6 @@
 namespace Ometra\Caronte\Http\Middleware;
 
 use Closure;
-use Ometra\Caronte\Support\RouteMode;
 use Illuminate\Http\Request;
 use Ometra\Caronte\Facades\Caronte;
 use Ometra\Caronte\Helpers\PermissionHelper;
@@ -28,7 +27,10 @@ class ValidateUserToken
 
             $response = $next($request);
 
-            if (Caronte::tokenWasExchanged() && RouteMode::wantsJson()) {
+            if (
+                Caronte::tokenWasExchanged()
+                && ($request->expectsJson() || $request->wantsJson() || $request->is('api/*'))
+            ) {
                 $response->headers->set('X-User-Token', $token->toString());
             }
 

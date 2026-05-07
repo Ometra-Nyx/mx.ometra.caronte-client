@@ -22,8 +22,11 @@ X-Tenant-Id: <tenant_id>
 |---|---|---|
 | `login()` | `POST /api/auth/login` | Password login |
 | `exchange()` | `POST /api/auth/exchange` | Exchange expired user JWT |
-| `requestTwoFactor()` / `issueTwoFactor()` / `consumeTwoFactor()` | `/api/auth/2fa...` | 2FA flow |
-| `requestPasswordRecovery()` / `consumePasswordRecovery()` | `/api/auth/password...` | Password recovery |
+| `logout()` | `POST /api/auth/logout` or `POST /api/auth/logoutAll` | Revoke current or all user sessions on the server |
+| `requestTwoFactor()` / `issueTwoFactor()` / `consumeTwoFactor()` | `/api/auth/two-factor...` | 2FA flow |
+| `requestPasswordRecovery()` / `issuePasswordRecovery()` / `validatePasswordRecovery()` / `resetPassword()` | `/api/auth/password...` | Password recovery |
+
+The SDK web logout route accepts `GET` and `POST` for host-app ergonomics, but `AuthApi::logout()` always calls the Caronte server with `POST` and sends both `X-Application-Token` and `X-User-Token`.
 
 ### ClientApi
 
@@ -31,13 +34,15 @@ Uses `/api/users` on the server.
 
 | Method | Caronte endpoint | Purpose |
 |---|---|---|
-| `showUsers()` | `GET /api/users` | List users |
+| `showUsers($search, $usersApp)` | `GET /api/users?search=...&app_users=...` | List tenant users; pass `$usersApp=false` to request the full tenant list |
 | `createUser()` | `POST /api/users` | Create user |
 | `showUser()` | `GET /api/users/{uri}` | Show user |
 | `updateUser()` | `PUT /api/users/{uri}` | Update user |
 | `deleteUser()` | `DELETE /api/users/{uri}` | Delete user |
 | `showUserRoles()` | `GET /api/users/{uri}/roles` | List roles |
 | `syncUserRoles()` | `PUT /api/users/{uri}/roles` | Replace roles |
+| `storeUserMetadata()` | `POST /api/users/{uri}/metadata` | Store metadata scoped to the current application |
+| `deleteUserMetadata()` | `DELETE /api/users/{uri}/metadata` | Delete metadata key |
 
 ### RoleApi
 
@@ -54,6 +59,14 @@ Uses `/api/users` on the server.
 | `syncPermissions()` | `PUT /api/applications/permissions` | Replace API permissions declared by this app |
 
 These permissions are for external consumers of this application's API. They are not user roles and are not Caronte platform permissions.
+
+### ProvisioningApi
+
+| Method | Caronte endpoint | Purpose |
+|---|---|---|
+| `provisionTenant()` | `POST /api/provisioning/tenants` | Provision a tenant and its first tenant admin |
+
+The configured application must have the Caronte platform permission `tenants.provision`.
 
 ## Application Credentials
 
@@ -87,6 +100,19 @@ base64(group_id:application_group_secret)
 ### `caronte.session`
 
 Validates the current user JWT from session or `Authorization: Bearer`. It accepts individual app user tokens and grouped user tokens. Grouped user tokens are validated with `CARONTE_APPLICATION_GROUP_SECRET` and must match `CARONTE_APPLICATION_GROUP_ID`.
+
+User JWTs are read from phase-2 top-level claims first:
+
+- `jti`
+- `sub`
+- `aud`
+- `tenant_id` / `id_tenant`
+- `roles`
+- `metadata`
+- `app_id`
+- `token_audience`
+
+The legacy nested `user` claim remains supported as a fallback during the compatibility window.
 
 ### `caronte.roles:<role>`
 
@@ -152,3 +178,19 @@ Bound by `caronte.app-token`.
 | `permissions` | Allowed API permissions |
 
 Use `hasPermission('invoices.read')` for programmatic checks.
+
+## Tenant Resolver
+
+`Ometra\Caronte\Tenancy\Resolvers\CaronteTenantResolver` implements Bee Hive's `TenantResolverInterface`. It reads the authenticated user's tenant from `Caronte::getTenantId()`, which in turn reads the validated user JWT. Local user cache models use `id_tenant` as their tenant key.
+
+## Helper APIs
+
+`Ometra\Caronte\Helpers\CaronteUserHelper` reads local cached users:
+
+| Method | Return |
+|---|---|
+| `getUserName($uriUser)` | Cached user name or `User not found` |
+| `getUserEmail($uriUser)` | Cached user email or `User not found` |
+| `getUserMetadata($uriUser, $key)` | Cached metadata value or `null` |
+
+These helpers do not call the Caronte server. They require the local user cache tables and follow the current Bee Hive tenant context.

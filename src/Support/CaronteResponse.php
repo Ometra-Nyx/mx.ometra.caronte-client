@@ -44,6 +44,16 @@ class CaronteResponse
         return static::respond(403, $message, $errors, null, $headers, $forwardUrl);
     }
 
+    public static function conflict(
+        string $message,
+        array $errors = [],
+        mixed $data = null,
+        array $headers = [],
+        ?string $forwardUrl = null
+    ): JsonResponse|RedirectResponse {
+        return static::respond(409, $message, $errors, $data, $headers, $forwardUrl);
+    }
+
     public static function notFound(
         string $message,
         array $errors = [],
@@ -96,6 +106,7 @@ class CaronteResponse
             401 => static::unauthorized($exception->getMessage(), $errors, $headers, $forwardUrl),
             403 => static::forbidden($exception->getMessage(), $errors, $headers, $forwardUrl),
             404 => static::notFound($exception->getMessage(), $errors, $headers, $forwardUrl),
+            409 => static::conflict($exception->getMessage(), $errors, null, $headers, $forwardUrl),
             422 => static::unprocessable($exception->getMessage(), $errors, $headers, $forwardUrl),
             default => static::error($exception->getMessage(), $errors, $headers, $forwardUrl),
         };
@@ -109,7 +120,7 @@ class CaronteResponse
         array $headers = [],
         ?string $forwardUrl = null
     ): JsonResponse|RedirectResponse {
-        if (RouteMode::wantsJson()) {
+        if (static::wantsJson()) {
             return static::json($status, $message, $errors, $data, $headers);
         }
 
@@ -163,7 +174,7 @@ class CaronteResponse
         if ($status >= 400) {
             return $response
                 ->with('error', $sanitizedMessage)
-                ->withErrors($sanitizedErrors === [] ? ['general' => [$sanitizedMessage]] : $sanitizedErrors)
+                ->withErrors($sanitizedErrors === [] ? ['general' => [$sanitizedMessage]] : static::redirectErrors($sanitizedErrors))
                 ->withInput(request()->except([
                     'password',
                     'password_confirmation',
@@ -184,6 +195,19 @@ class CaronteResponse
         return $message;
     }
 
+    private static function wantsJson(): bool
+    {
+        if (! app()->bound('request')) {
+            return false;
+        }
+
+        $request = request();
+
+        return $request->expectsJson()
+            || $request->wantsJson()
+            || $request->is('api/*');
+    }
+
     private static function sanitizeErrors(int $status, array $errors): array
     {
         if ($status >= 500 && !config('app.debug', false)) {
@@ -191,6 +215,35 @@ class CaronteResponse
         }
 
         return $errors;
+    }
+
+    /**
+     * @param  array<int|string, mixed>  $errors
+     * @return array<string, array<int, string>|string>
+     */
+    private static function redirectErrors(array $errors): array
+    {
+        $redirectErrors = [];
+
+        foreach ($errors as $key => $value) {
+            if (! is_string($key)) {
+                continue;
+            }
+
+            if (is_string($value)) {
+                $redirectErrors[$key] = $value;
+                continue;
+            }
+
+            if (
+                is_array($value)
+                && collect($value)->every(fn(mixed $item): bool => is_string($item))
+            ) {
+                $redirectErrors[$key] = $value;
+            }
+        }
+
+        return $redirectErrors === [] ? ['general' => ['Request failed.']] : $redirectErrors;
     }
 
     /**

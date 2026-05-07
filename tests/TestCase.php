@@ -4,6 +4,7 @@ namespace Tests;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Equidna\Toolkit\Providers\EquidnaLaravelToolkitServiceProvider;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Encoding\ChainedFormatter;
 use Lcobucci\JWT\Signer\Hmac\Sha256;
@@ -17,6 +18,7 @@ abstract class TestCase extends Orchestra
     protected function getPackageProviders($app): array
     {
         return [
+            EquidnaLaravelToolkitServiceProvider::class,
             CaronteServiceProvider::class,
         ];
     }
@@ -94,15 +96,25 @@ abstract class TestCase extends Orchestra
         );
 
         $builder = $config->builder(ChainedFormatter::default())
+            ->identifiedBy('user-token-1')
             ->issuedBy((string) config('caronte.issuer_id', ''))
+            ->permittedFor($group ? (string) config('caronte.application_group_id') : CaronteApplicationToken::appId())
+            ->relatedTo($this->subjectForTokenUser($user))
             ->issuedAt($issuedAt)
             ->canOnlyBeUsedAfter($issuedAt)
             ->expiresAt($expiresAt)
+            ->withClaim('tenant_id', $user['tenant_id'] ?? $user['id_tenant'] ?? null)
+            ->withClaim('id_tenant', $user['id_tenant'] ?? $user['tenant_id'] ?? null)
+            ->withClaim('name', $user['name'])
+            ->withClaim('email', $user['email'])
+            ->withClaim('roles', $user['roles'])
+            ->withClaim('metadata', $user['metadata'])
             ->withClaim('user', json_encode($user));
 
         if ($group) {
             $builder = $builder
                 ->withClaim('token_audience', 'application_group')
+                ->withClaim('app_id', $sourceAppId ?? sha1('source-app'))
                 ->withClaim('group_id', (string) config('caronte.application_group_id'))
                 ->withClaim('source_app_id', $sourceAppId ?? sha1('source-app'));
         } else {
@@ -114,6 +126,49 @@ abstract class TestCase extends Orchestra
         return $builder
             ->getToken($config->signer(), $config->signingKey())
             ->toString();
+    }
+
+    /**
+     * @param  array<string, mixed>  $user
+     */
+    protected function makeTokenWithoutLegacyUserClaim(array $user): string
+    {
+        $issuedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $expiresAt = $issuedAt->modify('+15 minutes');
+        $config = Configuration::forSymmetricSigner(
+            new Sha256(),
+            InMemory::plainText((string) config('caronte.app_secret'))
+        );
+
+        return $config->builder(ChainedFormatter::default())
+            ->identifiedBy('user-token-2')
+            ->issuedBy((string) config('caronte.issuer_id', ''))
+            ->permittedFor(CaronteApplicationToken::appId())
+            ->relatedTo($this->subjectForTokenUser($user))
+            ->issuedAt($issuedAt)
+            ->canOnlyBeUsedAfter($issuedAt)
+            ->expiresAt($expiresAt)
+            ->withClaim('token_audience', 'application')
+            ->withClaim('app_id', CaronteApplicationToken::appId())
+            ->withClaim('tenant_id', $user['tenant_id'] ?? $user['id_tenant'] ?? null)
+            ->withClaim('id_tenant', $user['id_tenant'] ?? $user['tenant_id'] ?? null)
+            ->withClaim('name', $user['name'])
+            ->withClaim('email', $user['email'])
+            ->withClaim('roles', $user['roles'])
+            ->withClaim('metadata', $user['metadata'])
+            ->getToken($config->signer(), $config->signingKey())
+            ->toString();
+    }
+
+    /**
+     * @param  array<string, mixed>  $user
+     */
+    private function subjectForTokenUser(array $user): string
+    {
+        $uriUser = (string) ($user['uri_user'] ?? '');
+        $tenantId = (string) ($user['tenant_id'] ?? $user['id_tenant'] ?? '');
+
+        return $tenantId !== '' ? $tenantId . ':' . $uriUser : $uriUser;
     }
 
     /**

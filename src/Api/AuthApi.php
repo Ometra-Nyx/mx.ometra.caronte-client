@@ -2,20 +2,28 @@
 
 namespace Ometra\Caronte\Api;
 
+use Ometra\Caronte\Facades\Caronte;
+
 class AuthApi
 {
     /**
      * @return array{status: int, message: string, data: mixed, errors: array<int|string, mixed>}
      */
-    public static function login(string $email, string $password): array
+    public static function login(string $email, string $password, ?string $tenantId = null): array
     {
+        $payload = [
+            'email' => $email,
+            'password' => $password,
+        ];
+
+        if (is_string($tenantId) && trim($tenantId) !== '') {
+            $payload['tenant_id'] = trim($tenantId);
+        }
+
         return app(CaronteApiClient::class)->authRequest(
             method: 'post',
             endpoint: 'api/auth/login',
-            payload: [
-                'email' => $email,
-                'password' => $password,
-            ]
+            payload: $payload
         );
     }
 
@@ -26,7 +34,7 @@ class AuthApi
     {
         return app(CaronteApiClient::class)->authRequest(
             method: 'post',
-            endpoint: 'api/auth/2fa',
+            endpoint: 'api/auth/two-factor',
             payload: [
                 'email' => $email,
                 'callback_url' => $callbackUrl,
@@ -41,7 +49,7 @@ class AuthApi
     {
         return app(CaronteApiClient::class)->authRequest(
             method: 'post',
-            endpoint: 'api/auth/2fa/issue',
+            endpoint: 'api/auth/two-factor/issue',
             payload: [
                 'email' => $email,
                 'callback_url' => $callbackUrl,
@@ -56,7 +64,7 @@ class AuthApi
     {
         return app(CaronteApiClient::class)->authRequest(
             method: 'post',
-            endpoint: 'api/auth/2fa/' . $token
+            endpoint: 'api/auth/two-factor/' . $token
         );
     }
 
@@ -119,17 +127,10 @@ class AuthApi
      */
     public static function logout(?string $userToken = null, bool $allSessions = false): array
     {
-        if ($userToken === null) {
-            return app(CaronteApiClient::class)->userRequest(
-                method: 'post',
-                endpoint: $allSessions ? 'api/auth/logoutAll' : 'api/auth/logout'
-            );
-        }
-
         return app(CaronteApiClient::class)->authRequest(
             method: 'post',
             endpoint: $allSessions ? 'api/auth/logoutAll' : 'api/auth/logout',
-            userToken: $userToken
+            userToken: $userToken ?? Caronte::getToken()->toString()
         );
     }
 

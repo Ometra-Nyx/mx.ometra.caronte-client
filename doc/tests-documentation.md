@@ -4,7 +4,7 @@
 
 The package uses PHPUnit 11 through Orchestra Testbench 10.
 
-Current suite: `32 tests, 94 assertions`.
+Current suite: `39 tests, 117 assertions`.
 
 ```bash
 php vendor/bin/phpunit --do-not-cache-result
@@ -19,6 +19,7 @@ php vendor/bin/phpunit --filter MiddlewareBehaviorTest
 | Commands for roles, permissions, and users | `CommandBehaviorTest` |
 | Config validation for roles and management access | `ConfigurationValidationTest` |
 | Management UI routes | `ManagementUiTest` |
+| Resolved tenancy, Inertia, and helper contracts | `ResolvedOpenQuestionsTest` |
 | Disabled management routes | `ManagementUiWhenDisabledTest` |
 | Middleware: user session, roles, app token, group app token, application access token | `MiddlewareBehaviorTest` |
 | Route registration | `RouteRegistrationTest` |
@@ -29,6 +30,12 @@ php vendor/bin/phpunit --filter MiddlewareBehaviorTest
 - Group app credentials are accepted by `caronte.application`.
 - Group user JWTs validate against group id and group secret.
 - Expired user JWTs trigger exchange.
+- Phase-2 user JWT claims are preferred and tokens without the legacy `user` claim are accepted.
+- SDK logout sends application and user tokens to the server logout endpoint.
+- `ProvisioningApi` wraps the server tenant provisioning endpoint.
+- `CaronteTenantResolver` reads tenant id from the authenticated user JWT.
+- Management dashboard supports Inertia responses when enabled.
+- `CaronteUserHelper` reads local cache name, email, and metadata values.
 - Role middleware rejects missing roles.
 - `caronte.app-token` accepts valid `ApplicationTokens`.
 - `caronte.app-permissions` rejects missing permissions.

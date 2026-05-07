@@ -1,4 +1,4 @@
-﻿# README — mx.ometra.caronte-client
+# README — mx.ometra.caronte-client
 
 > This documentation follows the project's Coding Standards and PHPDoc Style Guide.
 
@@ -13,6 +13,7 @@
 - Role-based access control tied to a central role registry
 - Application API permission declaration and application-token middleware
 - A ready-to-use management UI for users and roles
+- A server-side provisioning wrapper for Caronte tenant provisioning
 - Server-to-server inter-app communication via application tokens
 
 **Primary audience:** Internal development teams adding Caronte authentication to a Laravel application.
@@ -91,11 +92,13 @@
    Route::middleware(['caronte.app-token', 'caronte.app-permissions:invoices.read'])->get(...);
    ```
 
-9. **Visit** the management UI at `/caronte/management` (default).
+9. **Visit** the app-local management UI at `/caronte/management` (default).
 
 ## Token Types
 
 - User JWTs authenticate humans and are checked by `caronte.session`.
+- User JWTs are read from phase-2 top-level claims first: `sub`, `aud`, `jti`, `tenant_id`, `roles`, `metadata`, `app_id`, and `token_audience`. The legacy nested `user` claim remains supported as a fallback.
+- Logout routes in the SDK may be called with `GET` or `POST`, but the SDK always calls the Caronte server logout endpoint with `POST`.
 - App-to-app credentials use `X-Application-Token` and are checked by `caronte.application`.
 - Application-group credentials use `base64(group_id:application_group_secret)`.
 - `ApplicationTokens` authenticate external applications consuming this app's API and are checked by `caronte.app-token` plus `caronte.app-permissions:*`.

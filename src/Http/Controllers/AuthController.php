@@ -14,7 +14,6 @@ use Ometra\Caronte\Contracts\SendsTwoFactorChallenge;
 use Ometra\Caronte\Exceptions\CaronteApiException;
 use Ometra\Caronte\Facades\Caronte;
 use Ometra\Caronte\Support\CaronteResponse;
-use Ometra\Caronte\Support\RouteMode;
 use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends BaseController
@@ -31,10 +30,11 @@ class AuthController extends BaseController
             'callback_url' => $request->query('callback_url'),
             'csrf_token' => csrf_token(),
             'branding' => $this->branding(),
+            'tenant_options' => (array) session('data.tenants', []),
             'routes' => [
                 'login' => route('caronte.login'),
                 'logout' => route('caronte.logout'),
-                'twoFactorRequest' => route('caronte.2fa.request'),
+                'twoFactorRequest' => route('caronte.twoFactor.request'),
                 'passwordRecoverForm' => route('caronte.password.recover.form'),
             ],
         ]);
@@ -96,18 +96,22 @@ class AuthController extends BaseController
         $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
+            'tenant_id' => ['nullable', 'string'],
         ]);
 
         try {
             $response = AuthApi::login(
                 email: $request->string('email')->toString(),
-                password: $request->string('password')->toString()
+                password: $request->string('password')->toString(),
+                tenantId: $request->input('tenant_id') !== null
+                    ? $request->string('tenant_id')->toString()
+                    : null
             );
 
             $tokenString = (string) data_get($response, 'data.token', '');
             $token = CaronteUserToken::validateToken($tokenString, skipExchange: true);
 
-            if (RouteMode::isWeb()) {
+            if ($this->isWebRequest($request)) {
                 Caronte::saveToken($token->toString());
             }
 
@@ -117,6 +121,18 @@ class AuthController extends BaseController
                 forwardUrl: $this->forwardUrl($request->input('callback_url'))
             );
         } catch (CaronteApiException $exception) {
+            if (
+                $exception->getCode() === 409
+                && ($exception->errors()['code'] ?? null) === 'tenant_selection_required'
+            ) {
+                return CaronteResponse::conflict(
+                    message: $exception->getMessage(),
+                    errors: $exception->errors(),
+                    data: ['tenants' => $exception->errors()['tenants'] ?? []],
+                    forwardUrl: (string) config('caronte.login_url')
+                );
+            }
+
             return CaronteResponse::handleException(
                 exception: $exception,
                 errors: $exception->errors(),
@@ -183,7 +199,7 @@ class AuthController extends BaseController
             $tokenString = (string) data_get($response, 'data.token', '');
             $validatedToken = CaronteUserToken::validateToken($tokenString, skipExchange: true);
 
-            if (RouteMode::isWeb()) {
+            if ($this->isWebRequest($request)) {
                 Caronte::saveToken($validatedToken->toString());
             }
 
@@ -260,7 +276,7 @@ class AuthController extends BaseController
             );
         }
 
-        if (RouteMode::wantsJson()) {
+        if ($this->wantsJson()) {
             return CaronteResponse::success(
                 message: $response['message'],
                 data: $response['data']
@@ -366,5 +382,18 @@ class AuthController extends BaseController
         }
 
         return url($url);
+    }
+
+    private function isWebRequest(Request $request): bool
+    {
+        return ! $this->wantsJson()
+            && ! $request->is('api/*');
+    }
+
+    private function wantsJson(): bool
+    {
+        return request()->expectsJson()
+            || request()->wantsJson()
+            || request()->is('api/*');
     }
 }

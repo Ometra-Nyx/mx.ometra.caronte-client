@@ -12,6 +12,7 @@ namespace Ometra\Caronte\Helpers;
 use Ometra\Caronte\Models\CaronteUser;
 use Ometra\Caronte\Models\CaronteUserMetadata;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\DB;
 
 class CaronteUserHelper
 {
@@ -63,12 +64,9 @@ class CaronteUserHelper
      */
     public static function getUserMetadata(string $uri_user, string $key): string|null
     {
-        try {
-            $data = CaronteUserMetadata::where('uri_user', $uri_user)->where('key', $key)->firstOrFail();
-        } catch (ModelNotFoundException $e) {
-            return null;
-        }
-
-        return $data->value;
+        return DB::table((new CaronteUserMetadata())->getTable())
+            ->where('uri_user', $uri_user)
+            ->where('key', $key)
+            ->value('value');
     }
 }
