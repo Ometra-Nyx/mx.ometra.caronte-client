@@ -24,13 +24,15 @@ class ManagementController extends BaseController
             $users = collect(is_array($response['data']) ? $response['data'] : []);
             $paginator = $this->paginateUsers($users, $request);
             $preview = $this->previewRoleSync();
+            $configuredRoles = ConfiguredRoles::all();
 
             return $this->toView('management.index', [
                 'branding' => $this->branding(),
                 'search' => $search,
                 'tenant_id' => Caronte::getTenantId(),
                 'users' => $paginator,
-                'configured_roles' => ConfiguredRoles::all(),
+                'configured_roles' => $configuredRoles,
+                'roles' => $configuredRoles,
                 'remote_roles' => array_values($preview['remote']),
                 'missing_roles' => $preview['missing'],
                 'outdated_roles' => $preview['outdated'],

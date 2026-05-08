@@ -3,6 +3,7 @@
 namespace Ometra\Caronte\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Inertia\Response as InertiaResponse;
@@ -14,6 +15,23 @@ use Exception;
 
 class UserController extends BaseController
 {
+    public function list(Request $request): JsonResponse|Response
+    {
+        try {
+            $response = ClientApi::showUsers(
+                search: trim((string) $request->query('search', '')),
+                usersApp: $request->boolean('usersApp', true)
+            );
+
+            return response()->json($response, $response['status'] >= 400 ? $response['status'] : 200);
+        } catch (Exception $exception) {
+            return CaronteResponse::handleException(
+                exception: $exception,
+                forwardUrl: route('caronte.management.dashboard')
+            );
+        }
+    }
+
     public function store(Request $request): Response
     {
         $roleUris = $this->configuredRoleUris();
@@ -56,6 +74,20 @@ class UserController extends BaseController
         }
     }
 
+    public function listRoles(string $uri_user): JsonResponse|Response
+    {
+        try {
+            $response = ClientApi::showUserRoles($uri_user);
+
+            return response()->json($response, $response['status'] >= 400 ? $response['status'] : 200);
+        } catch (Exception $exception) {
+            return CaronteResponse::handleException(
+                exception: $exception,
+                forwardUrl: route('caronte.management.dashboard')
+            );
+        }
+    }
+
     public function show(string $uri_user): View|InertiaResponse|Response
     {
         try {
@@ -79,8 +111,8 @@ class UserController extends BaseController
                 'csrf_token' => csrf_token(),
                 'routes' => [
                     'dashboard' => route('caronte.management.dashboard'),
-                    'update' => route('caronte.management.users.update', ['uri_user' => $uri_user]),
-                    'delete' => route('caronte.management.users.delete', ['uri_user' => $uri_user]),
+                    'update' => route('caronte.management.users.update.direct', ['uri_user' => $uri_user]),
+                    'delete' => route('caronte.management.users.delete.direct', ['uri_user' => $uri_user]),
                     'syncRoles' => route('caronte.management.users.roles.sync', ['uri_user' => $uri_user]),
                     'storeMetadata' => route('caronte.management.users.metadata.store', ['uri_user' => $uri_user]),
                     'deleteMetadata' => route('caronte.management.users.metadata.delete', ['uri_user' => $uri_user]),
@@ -114,6 +146,15 @@ class UserController extends BaseController
                 forwardUrl: route('caronte.management.users.show', ['uri_user' => $uri_user])
             );
         }
+    }
+
+    public function updateLegacy(Request $request): Response
+    {
+        $uriUser = (string) $request->input('uri_user', '');
+
+        abort_if($uriUser === '', 422, 'Missing uri_user.');
+
+        return $this->update($request, $uriUser);
     }
 
     public function syncRoles(Request $request, string $uri_user): Response
@@ -209,6 +250,15 @@ class UserController extends BaseController
                 forwardUrl: route('caronte.management.dashboard')
             );
         }
+    }
+
+    public function deleteLegacy(Request $request): Response
+    {
+        $uriUser = (string) $request->input('uri_user', '');
+
+        abort_if($uriUser === '', 422, 'Missing uri_user.');
+
+        return $this->delete($uriUser);
     }
 
     /**

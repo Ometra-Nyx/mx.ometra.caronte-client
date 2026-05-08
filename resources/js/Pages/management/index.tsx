@@ -1,4 +1,16 @@
-import React from "react";
+import type { Branding, Paginated, Role, Routes, User } from "../../types";
+
+type ManagementIndexProps = {
+  branding?: Branding;
+  search?: string;
+  tenant_id?: string;
+  users?: Paginated<User>;
+  configured_roles?: Role[];
+  missing_roles?: Role[];
+  outdated_roles?: Role[];
+  routes?: Routes;
+  csrf_token?: string;
+};
 
 export default function ManagementIndex({
   branding = {},
@@ -10,7 +22,7 @@ export default function ManagementIndex({
   outdated_roles = [],
   routes = {},
   csrf_token,
-}) {
+}: ManagementIndexProps) {
   return (
     <div className="container py-4 py-lg-5">
       <div className="caronte-management-header mb-4">
@@ -76,7 +88,7 @@ export default function ManagementIndex({
                 <tbody>
                   {(users.data || []).length === 0 ? (
                     <tr>
-                      <td colSpan="3" className="text-center text-muted py-4">
+                      <td colSpan={3} className="text-center text-muted py-4">
                         No users matched your current filters.
                       </td>
                     </tr>
@@ -87,7 +99,7 @@ export default function ManagementIndex({
                         <td>{user.email}</td>
                         <td className="text-end">
                           <a
-                            href={routes.usersShow.replace("__USER__", user.uri_user)}
+                            href={(routes.usersShow || "").replace("__USER__", user.uri_user || "")}
                             className="btn btn-sm caronte-btn-secondary"
                           >
                             Manage

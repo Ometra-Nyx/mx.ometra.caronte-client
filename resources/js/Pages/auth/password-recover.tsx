@@ -1,6 +1,16 @@
-import React from "react";
+import type { Branding, Routes } from "../../types";
 
-export default function PasswordRecover({ routes = {}, branding = {}, csrf_token }) {
+type PasswordRecoverProps = {
+  routes?: Routes;
+  branding?: Branding;
+  csrf_token?: string;
+};
+
+export default function PasswordRecover({
+  routes = {},
+  branding = {},
+  csrf_token,
+}: PasswordRecoverProps) {
   return (
     <section className="caronte-auth">
       <div className="caronte-auth__panel">

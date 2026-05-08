@@ -19,6 +19,16 @@
                         <input type="email" class="form-control" id="createEmailInput" name="email" required>
                     </div>
 
+                    <div class="mb-3">
+                        <label for="createPasswordInput" class="form-label fw-semibold">Temporary password</label>
+                        <input type="password" class="form-control" id="createPasswordInput" name="password" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="createPasswordConfirmationInput" class="form-label fw-semibold">Confirm password</label>
+                        <input type="password" class="form-control" id="createPasswordConfirmationInput" name="password_confirmation" required>
+                    </div>
+
                     @include('caronte::management.users.partials.roles-checkboxes', ['idPrefix' => 'create'])
 
                     <div class="d-flex justify-content-end gap-2">

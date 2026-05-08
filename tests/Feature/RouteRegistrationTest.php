@@ -13,6 +13,15 @@ class RouteRegistrationTest extends TestCase
         $this->assertTrue(Route::has('caronte.login'));
         $this->assertTrue(Route::has('caronte.management.dashboard'));
         $this->assertTrue(Route::has('caronte.management.roles.sync'));
+        $this->assertTrue(Route::has('caronte.management.roles.create'));
+        $this->assertTrue(Route::has('caronte.management.roles.update'));
+        $this->assertTrue(Route::has('caronte.management.roles.delete'));
+        $this->assertTrue(Route::has('caronte.management.users.list'));
         $this->assertTrue(Route::has('caronte.management.users.show'));
+        $this->assertTrue(Route::has('caronte.management.users.update'));
+        $this->assertTrue(Route::has('caronte.management.users.update.direct'));
+        $this->assertTrue(Route::has('caronte.management.users.delete'));
+        $this->assertTrue(Route::has('caronte.management.users.delete.direct'));
+        $this->assertTrue(Route::has('caronte.management.users.roles.list'));
     }
 }

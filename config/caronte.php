@@ -17,9 +17,10 @@ return [
     | JWT Token Configuration
     |--------------------------------------------------------------------------
     */
-    'issuer_id'      => env('CARONTE_ISSUER_ID', 'caronte'),
-    'enforce_issuer' => env('CARONTE_ENFORCE_ISSUER', true),
-    'auth_mode'      => env('CARONTE_AUTH_MODE', 'legacy'), // legacy, oidc, dual
+    'issuer_id'                => env('CARONTE_ISSUER_ID', 'caronte'),
+    'enforce_issuer'           => env('CARONTE_ENFORCE_ISSUER', true),
+    'auth_mode'                => env('CARONTE_AUTH_MODE', 'legacy'), // legacy, oidc, dual
+    'token_clock_skew_seconds' => (int) env('CARONTE_TOKEN_CLOCK_SKEW_SECONDS', 60),
 
     /*
     |--------------------------------------------------------------------------

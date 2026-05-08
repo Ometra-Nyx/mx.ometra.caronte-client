@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use DateTimeImmutable;
+use DateTimeZone;
+use Equidna\Toolkit\Exceptions\UnprocessableEntityException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
@@ -181,6 +184,33 @@ class AuthContractTest extends TestCase
         $this->assertSame('tenant-flat', $user->tenant_id);
         $this->assertSame('root', $user->roles[0]->name);
         $this->assertSame('theme', $user->metadata[0]->key);
+    }
+
+    public function test_user_token_accepts_iat_and_nbf_within_configured_clock_skew(): void
+    {
+        config()->set('caronte.token_clock_skew_seconds', 120);
+
+        $token = $this->makeToken(
+            issuedAt: new DateTimeImmutable('+90 seconds', new DateTimeZone('UTC')),
+        );
+
+        $parsed = CaronteUserToken::validateToken($token);
+
+        $this->assertSame(CaronteApplicationToken::appId(), $parsed->claims()->get('app_id'));
+    }
+
+    public function test_user_token_rejects_iat_and_nbf_beyond_configured_clock_skew(): void
+    {
+        config()->set('caronte.token_clock_skew_seconds', 30);
+
+        $token = $this->makeToken(
+            issuedAt: new DateTimeImmutable('+45 seconds', new DateTimeZone('UTC')),
+        );
+
+        $this->expectException(UnprocessableEntityException::class);
+        $this->expectExceptionMessage('Token is not yet valid.');
+
+        CaronteUserToken::validateToken($token);
     }
 
     public function test_host_notification_delivery_uses_issue_endpoints_and_package_mailables(): void

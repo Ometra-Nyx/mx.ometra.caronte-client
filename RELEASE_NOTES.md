@@ -1,3 +1,97 @@
+# Release v3.3.0 "Chronos"
+
+> **Release date:** 2026-05-07
+> **Type:** Minor — new features added backwards-compatibly. No breaking changes.
+
+---
+
+## Summary
+
+v3.3.0 "Chronos" delivers three focused improvements to the Caronte SDK: **configurable token clock skew**, a **GitHub Actions CI pipeline**, and a **frontend TypeScript migration** with new legacy-compatible management routes. Clock-skew tolerance closes an operational gap for multi-host deployments where clocks are not perfectly synchronised. The CI pipeline brings automated PHP and TypeScript quality checks to every push and PR. Migrating the React UI to TypeScript improves long-term maintainability and enables compile-time safety for SDK data shapes.
+
+The codename *Chronos* — the Greek personification of time — reflects the clock-skew theme and the automated, time-orchestrated CI jobs that now guard each commit.
+
+---
+
+## Highlights
+
+- **Configurable clock skew** — `CARONTE_TOKEN_CLOCK_SKEW_SECONDS` (default `60`) lets deployments tolerate small clock differences without token validation failures.
+- **GitHub Actions CI** — PHP (PHPUnit) and TypeScript (`tsc --noEmit`) jobs run automatically on push and pull requests.
+- **TypeScript frontend** — all React management pages are now `.tsx` with a shared `types.ts` file; no host-application changes required.
+- **Legacy management routes** — `users.list` and `users.roles.list` JSON endpoints added for backwards-compatible integrations.
+- **Improved Blade views** — create-user modal includes a temporary password field; roles partial is now resilient to missing variables.
+
+---
+
+## Added
+
+### Configurable Token Clock Skew
+
+Set `CARONTE_TOKEN_CLOCK_SKEW_SECONDS` in your environment (or override `token_clock_skew_seconds` in `config/caronte.php`) to allow a leeway window during `iat`/`nbf` claim validation:
+
+```dotenv
+# .env
+CARONTE_TOKEN_CLOCK_SKEW_SECONDS=120   # allow up to 2 minutes of clock drift
+```
+
+The default is `60` seconds — the same leeway applied silently in previous releases via a hard-coded constant. No host-application changes are required if the default is acceptable.
+
+### GitHub Actions CI Workflow
+
+`.github/workflows/ci.yml` runs two parallel jobs on every push to `main`/`dev` and on pull requests:
+
+| Job        | Tool        | What it checks                       |
+| ---------- | ----------- | ------------------------------------ |
+| PHP        | PHPUnit     | Full test suite via `composer test`  |
+| TypeScript | `tsc --noEmit` | Type correctness of frontend assets |
+
+### Frontend TypeScript Migration
+
+All management React pages have been migrated from `.jsx` to `.tsx`. A new `resources/js/types.ts` file provides strongly-typed interfaces for SDK data structures:
+
+```ts
+// resources/js/types.ts (excerpt)
+export interface CaronteUser {
+    uuid: string;
+    name: string;
+    email: string;
+    roles: CaronteRole[];
+    // ...
+}
+```
+
+`tsconfig.json` and `package.json` (TypeScript dev-dependencies) are included so the type-check step works with `npm ci && npm run typecheck` out of the box.
+
+### Legacy Management Routes
+
+New named routes for backwards-compatible JSON access:
+
+| Route name          | Method | URI                            |
+| ------------------- | ------ | ------------------------------ |
+| `users.list`        | GET    | `/caronte/management/users`    |
+| `users.roles.list`  | GET    | `/caronte/management/users/{user}/roles` |
+
+`UserController` exposes `list()`, `listRoles()`, and legacy `update()`/`delete()` wrapper methods. `RoleController` redirects unsupported legacy mutations with a clear error response.
+
+---
+
+## Changed
+
+- `ManagementController` now passes configured roles to index/dashboard views.
+- Blade `create.blade.php` modal includes a temporary password field.
+- `roles-checkboxes.blade.php` partial uses an `availableRoles` fallback to prevent undefined-variable errors.
+- `doc/routes-documentation.md` updated to document current vs legacy routes.
+- `doc/deployment-instructions.md` notes the new TSX asset compilation step.
+
+---
+
+## Full History
+
+See [CHANGELOG.md](CHANGELOG.md) for the complete project history.
+No breaking changes in this release. See [BREAKING_CHANGES.md](BREAKING_CHANGES.md) for migration guidance on previous versions.
+
+---
+
 # Release v3.2.1
 
 > **Release date:** 2026-05-07

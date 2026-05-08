@@ -1,4 +1,12 @@
-import React from "react";
+import type { Branding, Routes, TenantOption } from "../../types";
+
+type LoginProps = {
+  callback_url?: string;
+  routes?: Routes;
+  branding?: Branding;
+  csrf_token?: string;
+  tenant_options?: TenantOption[];
+};
 
 export default function Login({
   callback_url,
@@ -6,7 +14,7 @@ export default function Login({
   branding = {},
   csrf_token,
   tenant_options = [],
-}) {
+}: LoginProps) {
   return (
     <section className="caronte-auth">
       <div className="caronte-auth__panel">

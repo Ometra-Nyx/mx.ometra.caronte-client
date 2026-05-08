@@ -1,37 +1,49 @@
-import React from "react";
+import type { Branding, Routes } from "../../types";
 
-export default function PasswordRecoverRequest({
+type TwoFactorProps = {
+  callback_url?: string;
+  routes?: Routes;
+  branding?: Branding;
+  csrf_token?: string;
+};
+
+export default function TwoFactor({
+  callback_url,
   routes = {},
   branding = {},
   csrf_token,
-}) {
+}: TwoFactorProps) {
   return (
     <section className="caronte-auth">
       <div className="caronte-auth__panel">
         <span className="caronte-kicker">
           {branding.app_name || "Caronte"}
         </span>
-        <h1 className="caronte-title">Recover access</h1>
+        <h1 className="caronte-title">Two-factor sign in</h1>
         <p className="caronte-copy">
-          Enter your email and we will send password reset instructions.
+          We will send a secure login link to the email address registered in
+          Caronte.
         </p>
 
         <div className="caronte-card">
           <div className="caronte-card__header">
-            <h2>Password recovery</h2>
-            <p>If the account exists, a recovery message will be sent immediately.</p>
+            <h2>Request a sign-in link</h2>
+            <p>Open the email on any device and follow the secure link.</p>
           </div>
 
           <form
             method="POST"
-            action={routes.passwordRecoverRequest}
+            action={routes.twoFactorRequest}
             className="caronte-form"
           >
             <input type="hidden" name="_token" value={csrf_token} />
+            {callback_url ? (
+              <input type="hidden" name="callback_url" value={callback_url} />
+            ) : null}
 
             <div>
               <label htmlFor="email" className="form-label">
-                Email
+                Registered email
               </label>
               <input
                 id="email"
@@ -43,12 +55,14 @@ export default function PasswordRecoverRequest({
             </div>
 
             <button type="submit" className="btn caronte-btn-primary">
-              Send recovery instructions
+              Send sign-in link
             </button>
           </form>
 
           <div className="caronte-card__footer">
-            <a href={routes.login}>Back to sign in</a>
+            <a href={routes.passwordRecoverForm}>
+              Need to reset your password first?
+            </a>
           </div>
         </div>
       </div>

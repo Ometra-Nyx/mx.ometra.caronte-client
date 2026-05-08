@@ -45,17 +45,35 @@ All management routes require:
 - `caronte.session` (ValidateUserToken)
 - `caronte.roles:{access_roles}` (ValidateUserRoles)
 
+### Current Routes
+
+Use these names in new code.
+
 | Method | URI | Name | Description |
 |---|---|---|---|
 | GET | `/{mgmt_prefix}` | `caronte.management.dashboard` | Management dashboard |
 | POST | `/{mgmt_prefix}/roles/sync` | `caronte.management.roles.sync` | Sync roles to Caronte |
 | POST | `/{mgmt_prefix}/users` | `caronte.management.users.store` | Create a user |
 | GET | `/{mgmt_prefix}/users/{uri}` | `caronte.management.users.show` | Show user detail |
-| PUT | `/{mgmt_prefix}/users/{uri}` | `caronte.management.users.update` | Update user data |
-| DELETE | `/{mgmt_prefix}/users/{uri}` | `caronte.management.users.delete` | Delete user |
+| PUT | `/{mgmt_prefix}/users/{uri}` | `caronte.management.users.update.direct` | Update user data |
+| DELETE | `/{mgmt_prefix}/users/{uri}` | `caronte.management.users.delete.direct` | Delete user |
+| GET | `/{mgmt_prefix}/users/{uri}/roles` | `caronte.management.users.roles.list` | Return user roles as JSON |
 | PUT | `/{mgmt_prefix}/users/{uri}/roles` | `caronte.management.users.roles.sync` | Sync user roles |
 | POST | `/{mgmt_prefix}/users/{uri}/metadata` | `caronte.management.users.metadata.store` | Store user metadata |
 | DELETE | `/{mgmt_prefix}/users/{uri}/metadata` | `caronte.management.users.metadata.delete` | Delete metadata key |
+
+### Legacy Compatibility Routes
+
+These routes are kept for already-published Blade management views and older host integrations. Do not use them for new code unless you are maintaining a published legacy view.
+
+| Method | URI | Name | Description |
+|---|---|---|---|
+| GET | `/{mgmt_prefix}/users/list` | `caronte.management.users.list` | Legacy JSON user search endpoint |
+| POST | `/{mgmt_prefix}/users/update` | `caronte.management.users.update` | Legacy form endpoint; expects `uri_user` in the request body |
+| POST | `/{mgmt_prefix}/users/delete` | `caronte.management.users.delete` | Legacy form endpoint; expects `uri_user` in the request body |
+| POST | `/{mgmt_prefix}/roles/create` | `caronte.management.roles.create` | Legacy route name; redirects with a warning because roles are config-managed |
+| POST | `/{mgmt_prefix}/roles/update` | `caronte.management.roles.update` | Legacy route name; redirects with a warning because roles are config-managed |
+| POST | `/{mgmt_prefix}/roles/delete` | `caronte.management.roles.delete` | Legacy route name; redirects with a warning because roles are config-managed |
 
 Default `{mgmt_prefix}`: `caronte/management`
 
@@ -66,6 +84,7 @@ Default `{mgmt_prefix}`: `caronte/management`
 - The `root` role is always treated as an access role regardless of `access_roles` configuration.
 - The management UI can render either Blade views or Inertia pages depending on `management.use_inertia`.
 - Views are loaded from `resources/views/vendor/caronte` if published, otherwise from the package.
+- If a host app has older published Blade views, legacy compatibility routes prevent `RouteNotFoundException` while the views are migrated or republished.
 - Route selection for bearer-token vs session-token reads uses `RouteHelper::isApi()` plus the `api/*` path check.
 
 ## Middleware Aliases

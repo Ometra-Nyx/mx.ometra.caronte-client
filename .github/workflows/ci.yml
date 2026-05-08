@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+  pull_request:
+
+jobs:
+  php:
+    name: PHP Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo, pdo_sqlite, mbstring, openssl, curl, json, tokenizer, xml
+          coverage: none
+
+      - name: Validate Composer files
+        run: composer validate --no-check-publish --no-check-lock
+
+      - name: Install PHP dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Run PHPUnit
+        run: composer test
+
+  typescript:
+    name: TypeScript
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Run type check
+        run: npm run typecheck
