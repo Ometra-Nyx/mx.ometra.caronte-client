@@ -11,6 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - No changes yet.
 
+## [3.3.0] - 2026-05-07 "Chronos"
+
+### Added
+
+- **Configurable token clock skew** — `token_clock_skew_seconds` config key (default `60`) and `CARONTE_TOKEN_CLOCK_SKEW_SECONDS` env var. `CaronteUserToken::assertNotBefore` now uses the configured leeway when validating `iat`/`nbf` claims, tolerating small clock differences between hosts. Tests added to assert acceptance within the skew window and rejection beyond it.
+- **GitHub Actions CI workflow** — `.github/workflows/ci.yml` runs two jobs on every push to `main`/`dev` and on pull requests:
+    - **PHP job** — sets up PHP 8.4, validates Composer, installs dependencies, and runs PHPUnit via `composer test`.
+    - **TypeScript job** — sets up Node 24 with npm cache, installs dependencies via `npm ci`, and runs `tsc --noEmit`.
+- **Frontend TypeScript migration** — React pages migrated from `.jsx` to `.tsx`; shared `resources/js/types.ts` provides typed interfaces for SDK data structures (`CaronteUser`, `CaronteRole`, `CaronteMetadata`, etc.). `tsconfig.json` and `package.json` (TypeScript dev-dependencies) added.
+- **Legacy management routes & JSON endpoints** — `users.list` and `users.roles.list` named routes added for backwards-compatible integrations. `UserController` gains `list`, `listRoles`, and legacy `update`/`delete` wrappers; `RoleController` adds a redirect for unsupported legacy mutations.
+- **Blade view improvements** — create-user modal now includes a temporary password field; `roles-checkboxes.blade.php` partial made robust with an `availableRoles` fallback variable.
+
+### Changed
+
+- `ManagementController` now passes configured roles to index/dashboard views so Blade and SPA components can render role pickers without an extra API call.
+- Documentation updated: `doc/deployment-instructions.md` notes TSX assets; `doc/routes-documentation.md` describes current vs legacy routes.
+
 ## [3.2.1] - 2026-05-07
 
 ### Changed
