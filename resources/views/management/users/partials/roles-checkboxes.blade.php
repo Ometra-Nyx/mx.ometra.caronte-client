@@ -1,7 +1,8 @@
 <div class="mb-3">
+    @php($availableRoles = $roles ?? $configured_roles ?? [])
     <label class="form-label fw-semibold">Roles</label>
     <div class="row">
-        @forelse ($roles as $role)
+        @forelse ($availableRoles as $role)
             <div class="col-12 col-md-6">
                 <div class="form-check">
                     <input class="form-check-input user-role-checkbox" type="checkbox" name="roles[]"

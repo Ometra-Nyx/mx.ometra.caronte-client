@@ -38,11 +38,18 @@ if (config('caronte.management.enabled')) {
         ->group(function (): void {
             Route::get('', [ManagementController::class, 'dashboard'])->name('dashboard');
             Route::post('roles/sync', [RoleController::class, 'sync'])->name('roles.sync');
+            Route::post('roles/create', [RoleController::class, 'unsupportedLegacyMutation'])->name('roles.create');
+            Route::post('roles/update', [RoleController::class, 'unsupportedLegacyMutation'])->name('roles.update');
+            Route::post('roles/delete', [RoleController::class, 'unsupportedLegacyMutation'])->name('roles.delete');
 
+            Route::get('users/list', [UserController::class, 'list'])->name('users.list');
             Route::post('users', [UserController::class, 'store'])->name('users.store');
             Route::get('users/{uri_user}', [UserController::class, 'show'])->name('users.show');
-            Route::put('users/{uri_user}', [UserController::class, 'update'])->name('users.update');
-            Route::delete('users/{uri_user}', [UserController::class, 'delete'])->name('users.delete');
+            Route::post('users/update', [UserController::class, 'updateLegacy'])->name('users.update');
+            Route::put('users/{uri_user}', [UserController::class, 'update'])->name('users.update.direct');
+            Route::post('users/delete', [UserController::class, 'deleteLegacy'])->name('users.delete');
+            Route::delete('users/{uri_user}', [UserController::class, 'delete'])->name('users.delete.direct');
+            Route::get('users/{uri_user}/roles', [UserController::class, 'listRoles'])->name('users.roles.list');
             Route::put('users/{uri_user}/roles', [UserController::class, 'syncRoles'])->name('users.roles.sync');
             Route::post('users/{uri_user}/metadata', [UserController::class, 'storeMetadata'])->name('users.metadata.store');
             Route::delete('users/{uri_user}/metadata', [UserController::class, 'deleteMetadata'])->name('users.metadata.delete');

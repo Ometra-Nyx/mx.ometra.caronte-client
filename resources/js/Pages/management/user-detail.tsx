@@ -1,4 +1,13 @@
-import React from "react";
+import type { FeatureFlags, Role, Routes, User } from "../../types";
+
+type UserDetailProps = {
+  user?: User;
+  assigned_role_uris?: string[];
+  configured_roles?: Role[];
+  features?: FeatureFlags;
+  routes?: Routes;
+  csrf_token?: string;
+};
 
 export default function UserDetail({
   user = {},
@@ -7,7 +16,7 @@ export default function UserDetail({
   features = {},
   routes = {},
   csrf_token,
-}) {
+}: UserDetailProps) {
   return (
     <div className="container py-4 py-lg-5">
       <div className="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
@@ -127,7 +136,7 @@ export default function UserDetail({
                       <label htmlFor="value" className="form-label">
                         Value
                       </label>
-                      <textarea id="value" name="value" rows="4" className="form-control" />
+                      <textarea id="value" name="value" rows={4} className="form-control" />
                     </div>
 
                     <button type="submit" className="btn caronte-btn-primary">

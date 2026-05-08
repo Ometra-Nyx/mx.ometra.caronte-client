@@ -132,7 +132,7 @@ php artisan vendor:publish --tag=caronte:migrations
 php artisan vendor:publish --tag=caronte
 ```
 
-When `caronte.management.use_inertia=true`, publish `caronte:inertia` and compile the copied components from the host application's frontend build. Blade mode does not require those Inertia assets.
+When `caronte.management.use_inertia=true`, publish `caronte:inertia` and compile the copied TSX components from the host application's frontend build. Blade mode does not require those Inertia assets.
 
 ---
 
