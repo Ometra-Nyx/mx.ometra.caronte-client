@@ -282,6 +282,7 @@ final class CaronteUserToken
     private static function assertNotBefore(Plain $token): void
     {
         $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $leewaySeconds = (int) config('caronte.token_clock_skew_seconds', 60);
 
         foreach (['iat', 'nbf'] as $claim) {
             if (!$token->claims()->has($claim)) {
@@ -290,7 +291,10 @@ final class CaronteUserToken
 
             $value = $token->claims()->get($claim);
 
-            if ($value instanceof DateTimeImmutable && $value > $now) {
+            if (
+                $value instanceof DateTimeImmutable
+                && $value->getTimestamp() > ($now->getTimestamp() + $leewaySeconds)
+            ) {
                 throw new UnprocessableEntityException('Token is not yet valid.');
             }
         }
