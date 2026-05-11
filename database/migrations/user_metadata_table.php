@@ -14,6 +14,13 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
+     * Expected composite primary key for the users metadata table.
+     *
+     * @var list<string>
+     */
+    private array $expectedPrimaryColumns = ['uri_user', 'scope', 'key'];
+
+    /**
      * Run the migrations.
      */
     public function up(): void
@@ -52,16 +59,69 @@ return new class extends Migration
                 } else {
                     $table->string('value', 45)->change();
                 }
-                // Drop and re-add primary key if needed
-                $sm = Schema::getConnection()->getDoctrineSchemaManager();
-                $indexes = $sm->listTableIndexes($tableName);
-                if (isset($indexes['primary']) && $indexes['primary']->getColumns() !== ['uri_user', 'scope', 'key']) {
-                    $table->dropPrimary();
-                    $table->primary(['uri_user', 'scope', 'key']);
-                }
                 $table->engine = 'InnoDB';
             });
+
+            $currentPrimaryColumns = $this->getPrimaryColumns($tableName);
+
+            if ($currentPrimaryColumns !== $this->expectedPrimaryColumns) {
+                Schema::table($tableName, function (Blueprint $table) use ($currentPrimaryColumns) {
+                    if ($currentPrimaryColumns !== []) {
+                        $table->dropPrimary();
+                    }
+
+                    $table->primary($this->expectedPrimaryColumns);
+                });
+            }
         }
+    }
+
+    /**
+     * Retrieve primary key columns for the table without requiring Doctrine DBAL.
+     *
+     * @return list<string>
+     */
+    private function getPrimaryColumns(string $tableName): array
+    {
+        $schemaBuilder = Schema::getConnection()->getSchemaBuilder();
+
+        if (method_exists($schemaBuilder, 'getIndexes')) {
+            /** @var array<int, array{name?: string, columns?: array<int, string>}> $indexes */
+            $indexes = $schemaBuilder->getIndexes($tableName);
+
+            foreach ($indexes as $index) {
+                if (strtolower((string) ($index['name'] ?? '')) === 'primary') {
+                    return array_values($index['columns'] ?? []);
+                }
+            }
+        }
+
+        $driver = Schema::getConnection()->getDriverName();
+
+        if (!in_array($driver, ['mysql', 'mariadb'], true)) {
+            return $this->expectedPrimaryColumns;
+        }
+
+        $escapedTable = str_replace('`', '``', $tableName);
+        $rows = Schema::getConnection()->select(
+            "SHOW INDEX FROM `{$escapedTable}` WHERE Key_name = ?",
+            ['PRIMARY']
+        );
+
+        if ($rows === []) {
+            return [];
+        }
+
+        usort(
+            $rows,
+            static fn($a, $b): int => (int) ($a->Seq_in_index ?? $a->seq_in_index ?? 0)
+                <=> (int) ($b->Seq_in_index ?? $b->seq_in_index ?? 0)
+        );
+
+        return array_values(array_map(
+            static fn($row): string => (string) ($row->Column_name ?? $row->column_name ?? ''),
+            $rows
+        ));
     }
 
     /**
