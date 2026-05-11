@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - No changes yet.
 
+## [3.3.1] - 2026-05-11
+
+### Fixed
+
+- **Users metadata migration compatibility across Laravel 10/11/12** — `database/migrations/user_metadata_table.php` now resolves primary key metadata without relying on Doctrine DBAL-only APIs. The migration first uses the schema builder `getIndexes()` API when available and falls back to native MySQL/MariaDB `SHOW INDEX` introspection when needed, preventing failures on newer Laravel versions where deprecated Doctrine schema-manager methods are unavailable.
+
 ## [3.3.0] - 2026-05-07 "Chronos"
 
 ### Added
