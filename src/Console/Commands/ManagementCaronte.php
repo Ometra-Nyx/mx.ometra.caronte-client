@@ -15,6 +15,8 @@ class ManagementCaronte extends Command
         do {
             $selected = $this->choice('Choose an operation', [
                 'Sync configured roles',
+                'List tenants',
+                'Show tenant',
                 'List users',
                 'Create user',
                 'Update user',
@@ -25,6 +27,10 @@ class ManagementCaronte extends Command
 
             match ($selected) {
                 'Sync configured roles' => $this->call('caronte:roles:sync'),
+                'List tenants' => $this->call('caronte:tenants:list'),
+                'Show tenant' => $this->call('caronte:tenants:show', [
+                    'tenant' => (string) $this->ask('Tenant identifier'),
+                ]),
                 'List users' => $this->call('caronte:users:list'),
                 'Create user' => $this->call('caronte:users:create'),
                 'Update user' => $this->call('caronte:users:update'),

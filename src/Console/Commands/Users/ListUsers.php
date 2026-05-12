@@ -13,9 +13,10 @@ class ListUsers extends Command
     protected $signature = 'caronte:users:list
         {--tenant= : Tenant identifier required for user-scoped Caronte endpoints}
         {--search= : Optional name or email filter}
-        {--all : Include users not currently linked to the application}';
+        {--app-users : Only include users currently linked to the application}
+        {--all : Deprecated alias kept for compatibility; all tenant users are now returned by default}';
 
-    protected $description = 'List users visible to the configured Caronte application.';
+    protected $description = 'Search Caronte users in a tenant.';
 
     public function handle(): int
     {
@@ -24,7 +25,7 @@ class ListUsers extends Command
 
             $response = ClientApi::showUsers(
                 search: (string) $this->option('search'),
-                usersApp: !$this->option('all')
+                usersApp: (bool) $this->option('app-users')
             );
 
             $users = is_array($response['data']) ? $response['data'] : [];
@@ -36,9 +37,10 @@ class ListUsers extends Command
             }
 
             $this->table(
-                ['URI', 'Name', 'Email'],
+                ['URI', 'Tenant', 'Name', 'Email'],
                 array_map(fn(array $user): array => [
                     $user['uri_user'] ?? '',
+                    $user['tenant_id'] ?? $user['id_tenant'] ?? '',
                     $user['name'] ?? '',
                     $user['email'] ?? '',
                 ], $users)

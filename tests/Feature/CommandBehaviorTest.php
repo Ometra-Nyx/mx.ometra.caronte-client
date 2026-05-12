@@ -85,19 +85,79 @@ class CommandBehaviorTest extends TestCase
                 'status' => 200,
                 'message' => 'Users retrieved',
                 'data' => [
-                    ['uri_user' => 'user-1', 'name' => 'Jane Doe', 'email' => 'jane@example.com'],
+                    ['uri_user' => 'user-1', 'tenant_id' => 'tenant-1', 'name' => 'Jane Doe', 'email' => 'jane@example.com'],
                 ],
             ], 200),
         ]);
 
         $this->artisan('caronte:users:list', ['--tenant' => 'tenant-1'])
-            ->expectsTable(['URI', 'Name', 'Email'], [['user-1', 'Jane Doe', 'jane@example.com']])
+            ->expectsTable(['URI', 'Tenant', 'Name', 'Email'], [['user-1', 'tenant-1', 'Jane Doe', 'jane@example.com']])
             ->assertExitCode(0);
 
         Http::assertSent(function ($request): bool {
             return str_starts_with($request->url(), 'https://caronte.test/api/users')
                 && $request->hasHeader('X-Application-Token', CaronteApplicationToken::make())
-                && $request->hasHeader('X-Tenant-Id', 'tenant-1');
+                && $request->hasHeader('X-Tenant-Id', 'tenant-1')
+                && $request['app_users'] === 'false';
+        });
+    }
+
+    public function test_user_list_command_can_limit_search_to_application_users(): void
+    {
+        Http::fake([
+            'https://caronte.test/api/users*' => Http::response([
+                'status' => 200,
+                'message' => 'Users retrieved',
+                'data' => [],
+            ], 200),
+        ]);
+
+        $this->artisan('caronte:users:list', [
+            '--tenant' => 'tenant-1',
+            '--search' => 'jane@example.com',
+            '--app-users' => true,
+        ])
+            ->expectsOutput('No users were returned by Caronte.')
+            ->assertExitCode(0);
+
+        Http::assertSent(function ($request): bool {
+            return str_starts_with($request->url(), 'https://caronte.test/api/users')
+                && $request['search'] === 'jane@example.com'
+                && $request['app_users'] === 'true';
+        });
+    }
+
+    public function test_tenant_list_command_calls_tenant_endpoint(): void
+    {
+        Http::fake([
+            'https://caronte.test/api/tenants*' => Http::response([
+                'status' => 200,
+                'message' => 'Tenants retrieved',
+                'data' => [
+                    'tenants' => [
+                        [
+                            'tenant_id' => 'tenant-1',
+                            'external_id' => 'external-1',
+                            'name' => 'Tenant One',
+                            'status' => 'active',
+                            'users_count' => 3,
+                        ],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $this->artisan('caronte:tenants:list', ['--search' => 'tenant'])
+            ->expectsTable(
+                ['Tenant', 'External ID', 'Name', 'Status', 'Users'],
+                [['tenant-1', 'external-1', 'Tenant One', 'active', '3']]
+            )
+            ->assertExitCode(0);
+
+        Http::assertSent(function ($request): bool {
+            return str_starts_with($request->url(), 'https://caronte.test/api/tenants')
+                && $request->hasHeader('X-Application-Token', CaronteApplicationToken::make())
+                && $request['search'] === 'tenant';
         });
     }
 

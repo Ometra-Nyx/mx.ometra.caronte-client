@@ -12,6 +12,8 @@ use Ometra\Caronte\Caronte;
 use Ometra\Caronte\Console\Commands\ManagementCaronte;
 use Ometra\Caronte\Console\Commands\Permissions\SyncPermissions;
 use Ometra\Caronte\Console\Commands\Roles\SyncRoles;
+use Ometra\Caronte\Console\Commands\Tenants\ListTenants;
+use Ometra\Caronte\Console\Commands\Tenants\ShowTenant;
 use Ometra\Caronte\Console\Commands\Users\CreateUser;
 use Ometra\Caronte\Console\Commands\Users\DeleteUser;
 use Ometra\Caronte\Console\Commands\Users\ListUsers;
@@ -138,6 +140,8 @@ class CaronteServiceProvider extends ServiceProvider
                 ManagementCaronte::class,
                 SyncPermissions::class,
                 SyncRoles::class,
+                ListTenants::class,
+                ShowTenant::class,
                 ListUsers::class,
                 CreateUser::class,
                 UpdateUser::class,
