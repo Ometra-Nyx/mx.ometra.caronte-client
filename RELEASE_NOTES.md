@@ -1,3 +1,63 @@
+# Release v3.4.0
+
+> **Release date:** 2026-05-11
+> **Type:** Minor — new tenant management features added backwards-compatibly.
+
+---
+
+## Summary
+
+v3.4.0 introduces first-class tenant management capabilities in the SDK command surface. This release adds a dedicated `TenantApi` client, two new tenant-focused Artisan commands, and integrates those commands into the interactive admin menu. It also refines the existing users list experience by introducing a clearer `--app-users` option while keeping `--all` as a deprecated compatibility alias.
+
+No breaking changes are introduced.
+
+---
+
+## Highlights
+
+- **New tenant API client** — `TenantApi` now provides tenant listing and detail retrieval helpers.
+- **New tenant CLI commands** — `caronte:tenants:list` and `caronte:tenants:show` for operational workflows.
+- **Admin menu integration** — tenant commands are available via `caronte:admin` interactive flow.
+- **Improved users list semantics** — explicit `--app-users` flag with `--all` preserved as deprecated alias.
+
+---
+
+## Added
+
+### Tenant API
+
+New API client methods:
+
+- `TenantApi::listTenants()`
+- `TenantApi::showTenant()`
+
+### Tenant CLI
+
+New Artisan commands:
+
+- `caronte:tenants:list`
+- `caronte:tenants:show`
+
+These commands are also exposed from the interactive `caronte:admin` menu.
+
+---
+
+## Changed
+
+- `caronte:users:list` now supports `--app-users` as the canonical option.
+- `--all` remains available as a deprecated alias for backwards compatibility.
+- Users list output now includes tenant information.
+- List command forwarding to the API now uses the correct `app_users` parameter.
+- Command behavior tests were expanded to cover tenant command behavior and app-users option handling.
+
+---
+
+## Full History
+
+See [CHANGELOG.md](CHANGELOG.md) for complete project history.
+
+---
+
 # Release v3.3.1
 
 > **Release date:** 2026-05-11

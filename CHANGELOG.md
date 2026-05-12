@@ -11,6 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - No changes yet.
 
+## [3.4.0] - 2026-05-11
+
+### Added
+
+- **Tenant API client** — new `TenantApi` class with tenant listing and detail helpers:
+    - `TenantApi::listTenants()`
+    - `TenantApi::showTenant()`
+- **Tenant management Artisan commands**:
+    - `caronte:tenants:list`
+    - `caronte:tenants:show`
+- **Interactive admin menu integration** — `ManagementCaronte` now exposes tenant management commands from the interactive console flow.
+
+### Changed
+
+- **User listing command options** — `caronte:users:list` now supports `--app-users` as the explicit flag for app users. `--all` is retained as a deprecated alias for backwards compatibility.
+- **Users table output** — tenant information is now included in command output.
+- **Users API forwarding** — list command forwards the correct `app_users` parameter to the API client.
+- **Test coverage updates** — `tests/Feature/CommandBehaviorTest.php` now covers tenant commands, tenant column output, and `--app-users` behavior.
+
 ## [3.3.1] - 2026-05-11
 
 ### Fixed
