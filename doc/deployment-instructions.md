@@ -13,7 +13,7 @@
 ## 1. Installation
 
 ```bash
-composer require ometra/caronte-client
+composer require ometra/caronte-sdk
 ```
 
 The package auto-registers via Laravel's package discovery (`extra.laravel.providers`). No manual service-provider registration is required.
@@ -40,15 +40,17 @@ CARONTE_APP_CN=your-app-canonical-name
 CARONTE_APP_SECRET=a-strong-secret-at-least-32-chars
 ```
 
-| Variable | Required | Description |
-|---|---|---|
-| `CARONTE_URL` | Yes | Base URL of the Caronte authentication server |
-| `CARONTE_APP_CN` | Yes | Canonical name that identifies this application in Caronte |
-| `CARONTE_APP_SECRET` | Yes | Shared secret for application token generation |
-| `CARONTE_ISSUER_ID` | No | Overrides JWT issuer claim validation |
-| `CARONTE_APPLICATION_GROUP_ID` | No | Application group id for grouped user/app tokens |
-| `CARONTE_APPLICATION_GROUP_SECRET` | No | Group secret for grouped user/app tokens |
-| `CARONTE_AUTH_MODE` | No | `legacy`, `oidc`, or `dual` |
+| Variable                           | Required                | Description                                                |
+| ---------------------------------- | ----------------------- | ---------------------------------------------------------- |
+| `CARONTE_URL`                      | Yes                     | Base URL of the Caronte authentication server              |
+| `CARONTE_APP_CN`                   | Yes                     | Canonical name that identifies this application in Caronte |
+| `CARONTE_APP_SECRET`               | Yes                     | Shared secret for application token generation             |
+| `CARONTE_ISSUER_ID`                | No                      | Overrides JWT issuer claim validation                      |
+| `CARONTE_APPLICATION_GROUP_ID`     | No                      | Application group id for grouped user/app tokens           |
+| `CARONTE_APPLICATION_GROUP_SECRET` | No                      | Group secret for grouped user/app tokens                   |
+| `CARONTE_AUTH_MODE`                | No                      | `legacy`, `oidc`, or `dual`                                |
+| `CARONTE_TENANCY_MODE`             | No                      | `multi` (default) or `single`                              |
+| `CARONTE_TENANT_ID`                | Required in single mode | Tenant id enforced when `CARONTE_TENANCY_MODE=single`      |
 
 Most options have defaults in `config/caronte.php`. Use environment variables for deployment-specific values such as OIDC mode, TLS policy, management exposure, and notification delivery.
 
@@ -70,8 +72,8 @@ return [
 
     'http' => [
         'timeout'     => 10,   // seconds
-        'retries'     => 2,
-        'retry_sleep' => 500,  // ms between retries
+        'retries'     => 1,
+        'retry_sleep' => 150,  // ms between retries
     ],
 
     'roles' => [
@@ -98,9 +100,9 @@ return [
 
 ## 3. Database Migrations
 
-| Migration file | Table created |
-|---|---|
-| `users_table.php` | `{prefix}Users` |
+| Migration file            | Table created          |
+| ------------------------- | ---------------------- |
+| `users_table.php`         | `{prefix}Users`        |
 | `user_metadata_table.php` | `{prefix}UserMetadata` |
 
 ```bash
@@ -119,13 +121,13 @@ php artisan vendor:publish --tag=caronte:migrations
 
 ## 4. Publishing Assets
 
-| Tag | Published to |
-|---|---|
-| `caronte:config` | `config/caronte.php` |
-| `caronte:views` | `resources/views/vendor/caronte` |
-| `caronte:migrations` | `database/migrations` |
-| `caronte:inertia` | `resources/js/vendor/caronte` |
-| `caronte-assets` | `public/vendor/caronte` |
+| Tag                  | Published to                     |
+| -------------------- | -------------------------------- |
+| `caronte:config`     | `config/caronte.php`             |
+| `caronte:views`      | `resources/views/vendor/caronte` |
+| `caronte:migrations` | `database/migrations`            |
+| `caronte:inertia`    | `resources/js/vendor/caronte`    |
+| `caronte-assets`     | `public/vendor/caronte`          |
 
 ```bash
 # Publish everything at once
@@ -140,13 +142,13 @@ When `caronte.management.use_inertia=true`, publish `caronte:inertia` and compil
 
 Three aliases are registered automatically by `CaronteServiceProvider`:
 
-| Alias | Class | Purpose |
-|---|---|---|
-| `caronte.session` | `ValidateUserToken` | Validates and auto-renews the user JWT |
-| `caronte.roles` | `ValidateUserRoles` | Checks the user has the specified roles |
-| `caronte.application` | `ResolveApplicationContext` | Validates incoming application tokens |
-| `caronte.app-token` | `ValidateApplicationAccessToken` | Validates tenant-bound `ApplicationToken` JWTs |
-| `caronte.app-permissions` | `ValidateApplicationPermissions` | Checks permissions on validated `ApplicationToken` JWTs |
+| Alias                     | Class                                  | Purpose                                                 |
+| ------------------------- | -------------------------------------- | ------------------------------------------------------- |
+| `caronte.session`         | `ValidateUserToken`                    | Validates and auto-renews the user JWT                  |
+| `caronte.roles`           | `ValidateUserRoles`                    | Checks the user has the specified roles                 |
+| `caronte.application`     | `ResolveApplicationContext`            | Validates incoming application tokens                   |
+| `caronte.app-token`       | `ValidateApplicationAccessToken`       | Validates tenant-bound `ApplicationToken` JWTs          |
+| `caronte.app-permissions` | `ValidateApplicationAccessPermissions` | Checks permissions on validated `ApplicationToken` JWTs |
 
 ```php
 // Auth guard

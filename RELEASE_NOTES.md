@@ -1,3 +1,51 @@
+# Release v3.6.0 "Keystone"
+
+> **Release date:** 2026-05-13
+> **Type:** Minor — new backwards-compatible tenancy capabilities.
+
+---
+
+## Summary
+
+v3.6.0 "Keystone" introduces first-class single-tenant runtime support while preserving the existing multi-tenant behavior. This release adds explicit tenancy mode configuration, centralizes tenant resolution in a dedicated support helper, and hardens tenant consistency checks across auth and middleware paths.
+
+The codename _Keystone_ reflects the goal of this release: making tenant context the structural anchor for every authenticated request.
+
+---
+
+## Highlights
+
+- **Single-tenant runtime mode** — configure `CARONTE_TENANCY_MODE=single` with `CARONTE_TENANT_ID` to run tenant-pinned applications without custom middleware forks.
+- **Shared tenancy helper** — new `CaronteTenancy` support class standardizes tenant-mode and tenant-id resolution across SDK internals.
+- **Tenant mismatch enforcement** — auth and request middleware now fail fast with `403` when tenant context is inconsistent.
+- **Tenant header propagation** — user/application API calls now forward `X-Tenant-Id` when available to keep server-side checks aligned with resolved tenant context.
+
+---
+
+## Added
+
+- Tenancy configuration support for `multi` and `single` modes.
+- New `Ometra\Caronte\Support\CaronteTenancy` helper for tenant resolution and validation.
+
+## Changed
+
+- `AuthController`, `ResolveApplicationContext`, and `ValidateUserToken` now enforce tenant consistency.
+- `CaronteHttpClient` now includes tenant context through `X-Tenant-Id` when resolved.
+- Documentation updates in deployment/routes guides for tenancy operation details.
+
+## Fixed
+
+- Tenant mismatch flows now return explicit forbidden responses instead of allowing ambiguous context pass-through.
+
+---
+
+## Full History
+
+See [CHANGELOG.md](CHANGELOG.md) for complete project history.
+See [BREAKING_CHANGES.md](BREAKING_CHANGES.md) for migration guidance.
+
+---
+
 # Release v3.5.0 "Waypoint"
 
 > **Release date:** 2026-05-13

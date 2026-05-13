@@ -179,9 +179,11 @@ src/
 │   └── CaronteServiceProvider.php
 └── Support/
     ├── CaronteApplicationContext.php  # DTO bound by ResolveApplicationContext
+    ├── CaronteApplicationAccessContext.php  # DTO bound by ValidateApplicationAccessToken
+    ├── CaronteTenancy.php              # Tenancy mode validation and tenant binding
     ├── CaronteApplicationToken.php    # App token generation & validation
     ├── CaronteHttpClient.php          # Abstract HTTP base (template method)
     ├── CaronteResponse.php            # Normalised response DTO
     ├── ConfiguredRoles.php            # Reads config('caronte.roles')
-    └── RequestContext.php
+    └── ConfiguredPermissions.php      # Reads config('caronte.permissions')
 ```

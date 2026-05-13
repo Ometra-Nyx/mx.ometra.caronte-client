@@ -34,8 +34,8 @@ php artisan caronte:roles:sync
 
 **Options:**
 
-| Option | Description |
-|---|---|
+| Option      | Description                                               |
+| ----------- | --------------------------------------------------------- |
 | `--dry-run` | Show table of configured vs. remote roles without pushing |
 
 **Table columns:** Role name · Description · `uri_applicationRole` (SHA1) · Remote status (`ok` / `outdated` / `missing`)
@@ -67,8 +67,8 @@ Example config:
 
 **Options:**
 
-| Option | Description |
-|---|---|
+| Option      | Description                                 |
+| ----------- | ------------------------------------------- |
 | `--dry-run` | Show normalized permissions without pushing |
 
 ---
@@ -86,9 +86,12 @@ php artisan caronte:users:list --tenant=acme
 
 **Options:**
 
-| Option | Description |
-|---|---|
-| `--tenant=` | Tenant identifier (prompted if omitted) |
+| Option        | Description                                             |
+| ------------- | ------------------------------------------------------- |
+| `--tenant=`   | Tenant identifier required by user-scoped endpoints     |
+| `--search=`   | Name or email filter                                    |
+| `--app-users` | Only include users currently linked to this application |
+| `--all`       | Deprecated compatibility alias                          |
 
 ---
 
@@ -105,13 +108,13 @@ php artisan caronte:users:create --name="Jane Doe" --email=jane@example.com --te
 
 **Options:**
 
-| Option | Description |
-|---|---|
-| `--tenant=` | Tenant identifier |
-| `--name=` | Full name |
-| `--email=` | Email address |
-| `--password=` | Initial password |
-| `--role=*` | Role(s) to assign (repeatable) |
+| Option        | Description                    |
+| ------------- | ------------------------------ |
+| `--tenant=`   | Tenant identifier              |
+| `--name=`     | Full name                      |
+| `--email=`    | Email address                  |
+| `--password=` | Initial password               |
+| `--role=*`    | Role(s) to assign (repeatable) |
 
 All options are prompted interactively if omitted.
 
@@ -124,10 +127,16 @@ All options are prompted interactively if omitted.
 Updates an existing user's data on the Caronte server.
 
 ```bash
-php artisan caronte:users:update
+php artisan caronte:users:update {uri_user?} --tenant=<tenant_id> --name="Updated Name"
 ```
 
-Options follow the same pattern as `caronte:users:create` (plus `--uri=` to identify the user).
+**Arguments and options:**
+
+| Input       | Description                                         |
+| ----------- | --------------------------------------------------- |
+| `uri_user`  | Optional argument; prompted when omitted            |
+| `--tenant=` | Tenant identifier required by user-scoped endpoints |
+| `--name=`   | Updated display name                                |
 
 ---
 
@@ -138,15 +147,15 @@ Options follow the same pattern as `caronte:users:create` (plus `--uri=` to iden
 Deletes a user from the Caronte server.
 
 ```bash
-php artisan caronte:users:delete --uri=<user-uri> --tenant=acme
+php artisan caronte:users:delete {uri_user?} --tenant=<tenant_id> [--force]
 ```
 
 **Options:**
 
-| Option | Description |
-|---|---|
-| `--uri=` | User URI identifier |
-| `--tenant=` | Tenant identifier |
+| Option      | Description                 |
+| ----------- | --------------------------- |
+| `--tenant=` | Tenant identifier           |
+| `--force`   | Delete without confirmation |
 
 Prompts for confirmation before deleting.
 
@@ -160,20 +169,45 @@ Overwrites the roles assigned to a user on the Caronte server.
 
 ```bash
 # Assign roles
-php artisan caronte:users:roles:sync --uri=<user-uri> --role=admin --role=editor --tenant=acme
+php artisan caronte:users:roles:sync {uri_user?} --role=admin --role=editor --tenant=acme
 
 # Clear all roles
-php artisan caronte:users:roles:sync --uri=<user-uri> --clear --tenant=acme
+php artisan caronte:users:roles:sync {uri_user?} --clear --tenant=acme
 ```
 
 **Options:**
 
-| Option | Description |
-|---|---|
-| `--uri=` | User URI identifier |
-| `--tenant=` | Tenant identifier |
-| `--role=*` | Role(s) to assign (repeatable) |
-| `--clear` | Remove all roles from the user |
+| Option      | Description                    |
+| ----------- | ------------------------------ |
+| `--tenant=` | Tenant identifier              |
+| `--role=*`  | Role(s) to assign (repeatable) |
+| `--clear`   | Remove all roles from the user |
+
+## caronte:tenants:list
+
+**Class:** `Tenants\ListTenants`
+
+Lists tenants visible to the configured application.
+
+```bash
+php artisan caronte:tenants:list --search=acme
+```
+
+**Options:**
+
+| Option      | Description                                                  |
+| ----------- | ------------------------------------------------------------ |
+| `--search=` | Optional tenant id, external id, name, or description filter |
+
+## caronte:tenants:show
+
+**Class:** `Tenants\ShowTenant`
+
+Shows a single tenant.
+
+```bash
+php artisan caronte:tenants:show <tenant_id>
+```
 
 ---
 

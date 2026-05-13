@@ -4,26 +4,25 @@
 
 The package uses PHPUnit 11 through Orchestra Testbench 10.
 
-Current suite: `39 tests, 117 assertions`.
-
 ```bash
-php vendor/bin/phpunit --do-not-cache-result
+composer test
 php vendor/bin/phpunit --filter MiddlewareBehaviorTest
+npm run typecheck
 ```
 
 ## Feature Coverage
 
-| Area | Test file |
-|---|---|
-| Auth pages, login, logout, password recovery, 2FA | `AuthContractTest` |
-| Commands for roles, permissions, and users | `CommandBehaviorTest` |
-| Config validation for roles and management access | `ConfigurationValidationTest` |
-| Management UI routes | `ManagementUiTest` |
-| Resolved tenancy, Inertia, and helper contracts | `ResolvedOpenQuestionsTest` |
-| Disabled management routes | `ManagementUiWhenDisabledTest` |
-| Middleware: user session, roles, app token, group app token, application access token | `MiddlewareBehaviorTest` |
-| Route registration | `RouteRegistrationTest` |
-| Disabled route registration | `RouteRegistrationWhenDisabledTest` |
+| Area                                                                                  | Test file                           |
+| ------------------------------------------------------------------------------------- | ----------------------------------- |
+| Auth pages, login, logout, password recovery, 2FA                                     | `AuthContractTest`                  |
+| Commands for roles, permissions, and users                                            | `CommandBehaviorTest`               |
+| Config validation for roles and management access                                     | `ConfigurationValidationTest`       |
+| Management UI routes                                                                  | `ManagementUiTest`                  |
+| Resolved tenancy, Inertia, and helper contracts                                       | `ResolvedOpenQuestionsTest`         |
+| Disabled management routes                                                            | `ManagementUiWhenDisabledTest`      |
+| Middleware: user session, roles, app token, group app token, application access token | `MiddlewareBehaviorTest`            |
+| Route registration                                                                    | `RouteRegistrationTest`             |
+| Disabled route registration                                                           | `RouteRegistrationWhenDisabledTest` |
 
 ## Important Contracts Covered
 

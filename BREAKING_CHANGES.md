@@ -1,5 +1,15 @@
 # Breaking Changes
 
+## v3.6.0
+
+### Breaking status
+
+No breaking changes were introduced in this release.
+
+### Migration
+
+No migration steps are required.
+
 ## v3.5.0
 
 ### Breaking status
