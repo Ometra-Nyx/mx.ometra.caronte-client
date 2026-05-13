@@ -1,3 +1,50 @@
+# Release v3.5.0 "Waypoint"
+
+> **Release date:** 2026-05-13
+> **Type:** Minor — new backwards-compatible login flow improvements.
+
+---
+
+## Summary
+
+v3.5.0 "Waypoint" improves the tenant-selection sign-in journey for shared users. When Caronte responds with `tenant_selection_required`, the SDK now stores a short-lived pending login context and allows users to complete tenant selection without re-entering their password. The login experiences in both Blade and Inertia were updated to reflect this second-step mode clearly and safely.
+
+The codename _Waypoint_ reflects the new guided checkpoint between credential validation and final tenant-aware authentication.
+
+---
+
+## Highlights
+
+- **Pending login context for tenant selection** — retains email + selection token temporarily to complete the next step cleanly.
+- **Improved login UX in both render modes** — email is prefilled/read-only and password is omitted during tenant-selection step.
+- **Auth API payload extension** — `tenant_selection_token` now forwarded by `AuthApi::login()` when present.
+- **Expanded test coverage** — feature tests validate tenant-selection redirects, token forwarding, and password-less second-step login.
+
+---
+
+## Added
+
+- Pending tenant-selection login context support in the authentication controller flow.
+
+## Changed
+
+- Blade and Inertia login screens now render a tenant-selection-specific form state.
+- `AuthApi::login()` signature and payload handling now include optional `tenant_selection_token`.
+- Conflict handling paths now preserve tenant-selection data consistently across web and JSON requests.
+
+## Fixed
+
+- Eliminated password re-entry requirement during tenant-selection retry after `409 tenant_selection_required`.
+
+---
+
+## Full History
+
+See [CHANGELOG.md](CHANGELOG.md) for complete project history.
+See [BREAKING_CHANGES.md](BREAKING_CHANGES.md) for migration guidance.
+
+---
+
 # Release v3.4.0
 
 > **Release date:** 2026-05-11

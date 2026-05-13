@@ -11,6 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - No changes yet.
 
+## [3.5.0] - 2026-05-13 "Waypoint"
+
+### Added
+
+- **Pending tenant-selection login state** — web login now stores a short-lived pending login context when Caronte responds with `tenant_selection_required`, allowing the tenant-selection step to complete without re-entering credentials.
+
+### Changed
+
+- **Tenant selection UX (Blade + Inertia)** — login views now switch into tenant-selection mode by pre-filling and locking the email field, hiding password input, and requiring tenant selection when pending login context is available.
+- **Auth API login payload support** — `AuthApi::login()` now accepts `tenant_selection_token` and forwards it to `api/auth/login` when present.
+- **Conflict response coverage** — `AuthController` and `CaronteResponse` flow now consistently returns/propagates tenant-selection conflict details for both JSON and web interactions.
+
+### Fixed
+
+- **Second-step login retry friction** — users no longer need to resend password on the tenant-selection retry after a `409 tenant_selection_required` response.
+
 ## [3.4.0] - 2026-05-11
 
 ### Added
