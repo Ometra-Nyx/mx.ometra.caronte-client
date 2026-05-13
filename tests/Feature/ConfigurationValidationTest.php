@@ -68,6 +68,27 @@ class ConfigurationValidationTest extends TestCase
         $this->assertTrue(true);
     }
 
+    public function test_tenancy_mode_must_be_valid(): void
+    {
+        config()->set('caronte.tenancy.mode', 'shared');
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('caronte.tenancy.mode must be either multi or single');
+
+        $this->validatePackageConfig();
+    }
+
+    public function test_single_tenant_mode_requires_configured_tenant_id(): void
+    {
+        config()->set('caronte.tenancy.mode', 'single');
+        config()->set('caronte.tenancy.tenant_id', '');
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('caronte.tenancy.tenant_id is required');
+
+        $this->validatePackageConfig();
+    }
+
     private function validatePackageConfig(): void
     {
         $provider = new CaronteServiceProvider($this->app);

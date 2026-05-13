@@ -14,6 +14,7 @@ use Ometra\Caronte\Contracts\SendsTwoFactorChallenge;
 use Ometra\Caronte\Exceptions\CaronteApiException;
 use Ometra\Caronte\Facades\Caronte;
 use Ometra\Caronte\Support\CaronteResponse;
+use Ometra\Caronte\Support\CaronteTenancy;
 use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends BaseController
@@ -115,6 +116,27 @@ class AuthController extends BaseController
         $tenantId = $request->input('tenant_id') !== null
             ? trim($request->string('tenant_id')->toString())
             : null;
+        $configuredTenantId = CaronteTenancy::isSingleTenant()
+            ? CaronteTenancy::requireConfiguredTenantId()
+            : null;
+
+        if (
+            $configuredTenantId !== null
+            && is_string($tenantId)
+            && $tenantId !== ''
+            && $tenantId !== $configuredTenantId
+        ) {
+            return CaronteResponse::forbidden(
+                message: 'Tenant mismatch.',
+                errors: ['Tenant mismatch.'],
+                forwardUrl: (string) config('caronte.login_url')
+            );
+        }
+
+        if ($configuredTenantId !== null) {
+            $tenantId = $configuredTenantId;
+        }
+
         $requestEmail = $request->filled('email')
             ? $request->string('email')->toString()
             : null;

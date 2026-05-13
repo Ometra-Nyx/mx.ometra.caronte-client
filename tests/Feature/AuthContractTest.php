@@ -113,6 +113,60 @@ class AuthContractTest extends TestCase
         });
     }
 
+    public function test_single_tenant_login_sends_configured_tenant_to_caronte(): void
+    {
+        config()->set('caronte.tenancy.mode', 'single');
+        config()->set('caronte.tenancy.tenant_id', 'mobig');
+
+        $token = $this->makeToken(['id_tenant' => 'mobig'] + [
+            'uri_user' => 'user-123',
+            'name' => 'Root User',
+            'email' => 'root@example.com',
+            'roles' => [
+                [
+                    'name' => 'root',
+                    'app_id' => CaronteApplicationToken::appId(),
+                    'uri_applicationRole' => sha1(CaronteApplicationToken::appId() . 'root'),
+                ],
+            ],
+            'metadata' => [],
+        ]);
+
+        Http::fake([
+            'https://caronte.test/api/auth/login' => Http::response([
+                'status' => 200,
+                'message' => 'Token generated',
+                'data' => ['token' => $token],
+            ], 200),
+        ]);
+
+        $this->post('/login', [
+            'email' => 'root@example.com',
+            'password' => 'Password123!',
+        ])->assertRedirect('/');
+
+        Http::assertSent(function ($request): bool {
+            return $request->url() === 'https://caronte.test/api/auth/login'
+                && ($request['tenant_id'] ?? null) === 'mobig';
+        });
+    }
+
+    public function test_single_tenant_login_rejects_explicit_tenant_mismatch(): void
+    {
+        config()->set('caronte.tenancy.mode', 'single');
+        config()->set('caronte.tenancy.tenant_id', 'mobig');
+
+        $this->postJson('/login', [
+            'email' => 'root@example.com',
+            'password' => 'Password123!',
+            'tenant_id' => 'other-tenant',
+        ])
+            ->assertStatus(403)
+            ->assertJsonPath('message', 'Tenant mismatch.');
+
+        Http::assertNothingSent();
+    }
+
     public function test_login_uses_pending_credentials_when_tenant_is_selected(): void
     {
         $token = $this->makeToken();
@@ -434,6 +488,55 @@ class AuthContractTest extends TestCase
             return $request->url() === 'https://caronte.test/api/auth/current-user'
                 && $request->hasHeader('X-Application-Token', CaronteApplicationToken::make())
                 && $request->hasHeader('X-User-Token', $token);
+        });
+    }
+
+    public function test_user_request_injects_single_tenant_context_header(): void
+    {
+        config()->set('caronte.tenancy.mode', 'single');
+        config()->set('caronte.tenancy.tenant_id', 'mobig');
+
+        $token = $this->makeToken([
+            'uri_user' => 'user-123',
+            'name' => 'Root User',
+            'email' => 'root@example.com',
+            'id_tenant' => 'mobig',
+            'roles' => [
+                [
+                    'name' => 'root',
+                    'app_id' => CaronteApplicationToken::appId(),
+                    'uri_applicationRole' => sha1(CaronteApplicationToken::appId() . 'root'),
+                ],
+            ],
+            'metadata' => [],
+        ]);
+
+        Route::middleware(['web', 'caronte.session'])->get('/_caronte/single-user-request-check', function () {
+            app(CaronteApiClient::class)->userRequest(
+                method: 'get',
+                endpoint: 'api/auth/current-user'
+            );
+
+            return response('ok');
+        });
+
+        Http::fake([
+            'https://caronte.test/api/auth/current-user' => Http::response([
+                'status' => 200,
+                'message' => 'Current user retrieved',
+                'data' => [],
+            ], 200),
+        ]);
+
+        $this->withSession([
+            config('caronte.session_key') => $token,
+        ])->get('/_caronte/single-user-request-check')->assertOk();
+
+        Http::assertSent(function ($request) use ($token): bool {
+            return $request->url() === 'https://caronte.test/api/auth/current-user'
+                && $request->hasHeader('X-Application-Token', CaronteApplicationToken::make())
+                && $request->hasHeader('X-User-Token', $token)
+                && $request->hasHeader('X-Tenant-Id', 'mobig');
         });
     }
 
