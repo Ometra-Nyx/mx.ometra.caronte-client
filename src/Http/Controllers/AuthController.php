@@ -18,6 +18,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends BaseController
 {
+    private const PENDING_LOGIN_SESSION_KEY = 'caronte.pending_login';
+    private const PENDING_LOGIN_TTL_SECONDS = 300;
+
     public function loginForm(Request $request): View|InertiaResponse|RedirectResponse
     {
         if (config('caronte.auth_mode') === 'oidc') {
@@ -25,12 +28,27 @@ class AuthController extends BaseController
         }
 
         $view = config('caronte.use_2fa') ? 'auth.two-factor' : 'auth.login';
+        $tenantOptions = (array) session('data.tenants', []);
+        $pendingLogin = $tenantOptions !== [] ? $this->pendingLogin($request) : null;
+
+        if ($tenantOptions === []) {
+            $this->forgetPendingLogin($request);
+        }
+
+        $callbackUrl = $request->query('callback_url');
+
+        if (! is_string($callbackUrl) || trim($callbackUrl) === '') {
+            $callbackUrl = $request->old('callback_url', data_get($pendingLogin, 'callback_url'));
+        }
 
         return $this->toView($view, [
-            'callback_url' => $request->query('callback_url'),
+            'callback_url' => $callbackUrl,
             'csrf_token' => csrf_token(),
             'branding' => $this->branding(),
-            'tenant_options' => (array) session('data.tenants', []),
+            'tenant_options' => $tenantOptions,
+            'pending_login' => $pendingLogin === null
+                ? null
+                : ['email' => $pendingLogin['email']],
             'routes' => [
                 'login' => route('caronte.login'),
                 'logout' => route('caronte.logout'),
@@ -93,19 +111,45 @@ class AuthController extends BaseController
 
     private function handleUserPasswordLogin(Request $request): Response
     {
+        $pendingLogin = $this->pendingLogin($request);
+        $tenantId = $request->input('tenant_id') !== null
+            ? trim($request->string('tenant_id')->toString())
+            : null;
+        $requestEmail = $request->filled('email')
+            ? $request->string('email')->toString()
+            : null;
+        $usePendingLogin = $pendingLogin !== null
+            && is_string($tenantId)
+            && $tenantId !== ''
+            && ! $request->filled('password')
+            && (
+                $requestEmail === null
+                || hash_equals($pendingLogin['email'], $requestEmail)
+            );
+
         $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
+            'email' => [$usePendingLogin ? 'nullable' : 'required', 'email'],
+            'password' => [$usePendingLogin ? 'nullable' : 'required', 'string'],
             'tenant_id' => ['nullable', 'string'],
+            'tenant_selection_token' => ['nullable', 'string'],
         ]);
+
+        $email = $usePendingLogin
+            ? $pendingLogin['email']
+            : $request->string('email')->toString();
+        $password = $usePendingLogin
+            ? null
+            : $request->string('password')->toString();
+        $tenantSelectionToken = $usePendingLogin
+            ? $pendingLogin['tenant_selection_token']
+            : null;
 
         try {
             $response = AuthApi::login(
-                email: $request->string('email')->toString(),
-                password: $request->string('password')->toString(),
-                tenantId: $request->input('tenant_id') !== null
-                    ? $request->string('tenant_id')->toString()
-                    : null
+                email: $email,
+                password: $password,
+                tenantId: $tenantId,
+                tenantSelectionToken: $tenantSelectionToken
             );
 
             $tokenString = (string) data_get($response, 'data.token', '');
@@ -114,6 +158,8 @@ class AuthController extends BaseController
             if ($this->isWebRequest($request)) {
                 Caronte::saveToken($token->toString());
             }
+
+            $this->forgetPendingLogin($request);
 
             return CaronteResponse::success(
                 message: $response['message'],
@@ -125,6 +171,35 @@ class AuthController extends BaseController
                 $exception->getCode() === 409
                 && ($exception->errors()['code'] ?? null) === 'tenant_selection_required'
             ) {
+                if ($this->isWebRequest($request)) {
+                    $tenantSelectionToken = $exception->errors()['tenant_selection_token'] ?? null;
+
+                    if (is_string($tenantSelectionToken) && trim($tenantSelectionToken) !== '') {
+                        $this->rememberPendingLogin(
+                            request: $request,
+                            email: $email,
+                            tenantSelectionToken: $tenantSelectionToken
+                        );
+                    }
+
+                    return redirect()
+                        ->to((string) config('caronte.login_url'))
+                        ->with([
+                            'status' => 409,
+                            'message' => 'Select a tenant to continue.',
+                            'info' => 'Select a tenant to continue.',
+                            'data' => [
+                                'tenants' => $exception->errors()['tenants'] ?? [],
+                            ],
+                        ])
+                        ->withInput($request->except([
+                            'password',
+                            'password_confirmation',
+                            'current_password',
+                            'new_password',
+                        ]));
+                }
+
                 return CaronteResponse::conflict(
                     message: $exception->getMessage(),
                     errors: $exception->errors(),
@@ -132,6 +207,8 @@ class AuthController extends BaseController
                     forwardUrl: (string) config('caronte.login_url')
                 );
             }
+
+            $this->forgetPendingLogin($request);
 
             return CaronteResponse::handleException(
                 exception: $exception,
@@ -395,5 +472,59 @@ class AuthController extends BaseController
         return request()->expectsJson()
             || request()->wantsJson()
             || request()->is('api/*');
+    }
+
+    /**
+     * @return array{email: string, tenant_selection_token: string, callback_url: string|null, created_at: int}|null
+     */
+    private function pendingLogin(Request $request): ?array
+    {
+        $pendingLogin = $request->session()->get(self::PENDING_LOGIN_SESSION_KEY);
+
+        if (! is_array($pendingLogin)) {
+            return null;
+        }
+
+        $email = $pendingLogin['email'] ?? null;
+        $tenantSelectionToken = $pendingLogin['tenant_selection_token'] ?? null;
+        $createdAt = $pendingLogin['created_at'] ?? null;
+        $callbackUrl = $pendingLogin['callback_url'] ?? null;
+
+        if (
+            ! is_string($email)
+            || ! is_string($tenantSelectionToken)
+            || ! is_int($createdAt)
+            || time() - $createdAt > self::PENDING_LOGIN_TTL_SECONDS
+        ) {
+            $this->forgetPendingLogin($request);
+
+            return null;
+        }
+
+        return [
+            'email' => $email,
+            'tenant_selection_token' => $tenantSelectionToken,
+            'callback_url' => is_string($callbackUrl) ? $callbackUrl : null,
+            'created_at' => $createdAt,
+        ];
+    }
+
+    private function rememberPendingLogin(Request $request, string $email, string $tenantSelectionToken): void
+    {
+        $callbackUrl = $request->input('callback_url');
+
+        $request->session()->put(self::PENDING_LOGIN_SESSION_KEY, [
+            'email' => $email,
+            'tenant_selection_token' => $tenantSelectionToken,
+            'callback_url' => is_string($callbackUrl) && trim($callbackUrl) !== ''
+                ? $callbackUrl
+                : null,
+            'created_at' => time(),
+        ]);
+    }
+
+    private function forgetPendingLogin(Request $request): void
+    {
+        $request->session()->forget(self::PENDING_LOGIN_SESSION_KEY);
     }
 }

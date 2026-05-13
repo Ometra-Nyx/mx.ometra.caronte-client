@@ -1,3 +1,153 @@
+# Release v3.5.0 "Waypoint"
+
+> **Release date:** 2026-05-13
+> **Type:** Minor — new backwards-compatible login flow improvements.
+
+---
+
+## Summary
+
+v3.5.0 "Waypoint" improves the tenant-selection sign-in journey for shared users. When Caronte responds with `tenant_selection_required`, the SDK now stores a short-lived pending login context and allows users to complete tenant selection without re-entering their password. The login experiences in both Blade and Inertia were updated to reflect this second-step mode clearly and safely.
+
+The codename _Waypoint_ reflects the new guided checkpoint between credential validation and final tenant-aware authentication.
+
+---
+
+## Highlights
+
+- **Pending login context for tenant selection** — retains email + selection token temporarily to complete the next step cleanly.
+- **Improved login UX in both render modes** — email is prefilled/read-only and password is omitted during tenant-selection step.
+- **Auth API payload extension** — `tenant_selection_token` now forwarded by `AuthApi::login()` when present.
+- **Expanded test coverage** — feature tests validate tenant-selection redirects, token forwarding, and password-less second-step login.
+
+---
+
+## Added
+
+- Pending tenant-selection login context support in the authentication controller flow.
+
+## Changed
+
+- Blade and Inertia login screens now render a tenant-selection-specific form state.
+- `AuthApi::login()` signature and payload handling now include optional `tenant_selection_token`.
+- Conflict handling paths now preserve tenant-selection data consistently across web and JSON requests.
+
+## Fixed
+
+- Eliminated password re-entry requirement during tenant-selection retry after `409 tenant_selection_required`.
+
+---
+
+## Full History
+
+See [CHANGELOG.md](CHANGELOG.md) for complete project history.
+See [BREAKING_CHANGES.md](BREAKING_CHANGES.md) for migration guidance.
+
+---
+
+# Release v3.4.0
+
+> **Release date:** 2026-05-11
+> **Type:** Minor — new tenant management features added backwards-compatibly.
+
+---
+
+## Summary
+
+v3.4.0 introduces first-class tenant management capabilities in the SDK command surface. This release adds a dedicated `TenantApi` client, two new tenant-focused Artisan commands, and integrates those commands into the interactive admin menu. It also refines the existing users list experience by introducing a clearer `--app-users` option while keeping `--all` as a deprecated compatibility alias.
+
+No breaking changes are introduced.
+
+---
+
+## Highlights
+
+- **New tenant API client** — `TenantApi` now provides tenant listing and detail retrieval helpers.
+- **New tenant CLI commands** — `caronte:tenants:list` and `caronte:tenants:show` for operational workflows.
+- **Admin menu integration** — tenant commands are available via `caronte:admin` interactive flow.
+- **Improved users list semantics** — explicit `--app-users` flag with `--all` preserved as deprecated alias.
+
+---
+
+## Added
+
+### Tenant API
+
+New API client methods:
+
+- `TenantApi::listTenants()`
+- `TenantApi::showTenant()`
+
+### Tenant CLI
+
+New Artisan commands:
+
+- `caronte:tenants:list`
+- `caronte:tenants:show`
+
+These commands are also exposed from the interactive `caronte:admin` menu.
+
+---
+
+## Changed
+
+- `caronte:users:list` now supports `--app-users` as the canonical option.
+- `--all` remains available as a deprecated alias for backwards compatibility.
+- Users list output now includes tenant information.
+- List command forwarding to the API now uses the correct `app_users` parameter.
+- Command behavior tests were expanded to cover tenant command behavior and app-users option handling.
+
+---
+
+## Full History
+
+See [CHANGELOG.md](CHANGELOG.md) for complete project history.
+
+---
+
+# Release v3.3.1
+
+> **Release date:** 2026-05-11
+> **Type:** Patch — backwards-compatible migration compatibility fix.
+
+---
+
+## Summary
+
+v3.3.1 delivers a targeted migration compatibility fix for host applications running newer Laravel versions. The `users_metadata_table` migration no longer depends on Doctrine DBAL-specific schema-manager APIs to inspect primary key metadata. Instead, it uses Laravel schema-builder index introspection when available and falls back to native MySQL/MariaDB index queries when needed.
+
+This patch prevents migration/runtime issues in environments where deprecated Doctrine schema-manager methods are unavailable, while preserving the expected composite primary key behavior for `UsersMetadata`.
+
+---
+
+## Highlights
+
+- **Laravel 10/11/12-safe migration introspection** — no hard dependency on removed Doctrine schema-manager APIs.
+- **Driver-aware fallback path** — uses `SHOW INDEX` for MySQL/MariaDB when schema-builder index APIs are not present.
+- **Primary key normalization retained** — still enforces `['uri_user', 'scope', 'key']` as the composite primary key.
+
+---
+
+## Fixed
+
+### Users metadata migration compatibility
+
+`database/migrations/user_metadata_table.php` now retrieves current primary-key columns through a compatibility-aware strategy:
+
+1. Uses `Schema::getConnection()->getSchemaBuilder()->getIndexes()` when available.
+2. Falls back to `SHOW INDEX ... WHERE Key_name = 'PRIMARY'` for MySQL/MariaDB.
+3. Avoids DBAL-only schema-manager dependencies that can fail on newer Laravel versions.
+
+No host application code changes are required.
+
+---
+
+## Full History
+
+See [CHANGELOG.md](CHANGELOG.md) for the complete project history.
+
+---
+
 # Release v3.3.0 "Chronos"
 
 > **Release date:** 2026-05-07
@@ -9,7 +159,7 @@
 
 v3.3.0 "Chronos" delivers three focused improvements to the Caronte SDK: **configurable token clock skew**, a **GitHub Actions CI pipeline**, and a **frontend TypeScript migration** with new legacy-compatible management routes. Clock-skew tolerance closes an operational gap for multi-host deployments where clocks are not perfectly synchronised. The CI pipeline brings automated PHP and TypeScript quality checks to every push and PR. Migrating the React UI to TypeScript improves long-term maintainability and enables compile-time safety for SDK data shapes.
 
-The codename *Chronos* — the Greek personification of time — reflects the clock-skew theme and the automated, time-orchestrated CI jobs that now guard each commit.
+The codename _Chronos_ — the Greek personification of time — reflects the clock-skew theme and the automated, time-orchestrated CI jobs that now guard each commit.
 
 ---
 
@@ -40,9 +190,9 @@ The default is `60` seconds — the same leeway applied silently in previous rel
 
 `.github/workflows/ci.yml` runs two parallel jobs on every push to `main`/`dev` and on pull requests:
 
-| Job        | Tool        | What it checks                       |
-| ---------- | ----------- | ------------------------------------ |
-| PHP        | PHPUnit     | Full test suite via `composer test`  |
+| Job        | Tool           | What it checks                      |
+| ---------- | -------------- | ----------------------------------- |
+| PHP        | PHPUnit        | Full test suite via `composer test` |
 | TypeScript | `tsc --noEmit` | Type correctness of frontend assets |
 
 ### Frontend TypeScript Migration
@@ -66,10 +216,10 @@ export interface CaronteUser {
 
 New named routes for backwards-compatible JSON access:
 
-| Route name          | Method | URI                            |
-| ------------------- | ------ | ------------------------------ |
-| `users.list`        | GET    | `/caronte/management/users`    |
-| `users.roles.list`  | GET    | `/caronte/management/users/{user}/roles` |
+| Route name         | Method | URI                                      |
+| ------------------ | ------ | ---------------------------------------- |
+| `users.list`       | GET    | `/caronte/management/users`              |
+| `users.roles.list` | GET    | `/caronte/management/users/{user}/roles` |
 
 `UserController` exposes `list()`, `listRoles()`, and legacy `update()`/`delete()` wrapper methods. `RoleController` redirects unsupported legacy mutations with a clear error response.
 

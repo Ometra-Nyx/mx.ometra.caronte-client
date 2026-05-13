@@ -49,6 +49,9 @@ class MiddlewareBehaviorTest extends TestCase
         Route::middleware(['caronte.session'])
             ->get('/api/_caronte/session-check', fn() => response()->json(['ok' => true]));
 
+        Route::middleware(['web', 'caronte.session'])
+            ->get('/_caronte/session-check', fn() => response('ok'));
+
         Route::middleware(['caronte.session', 'caronte.roles:admin'])
             ->get('/api/_caronte/role-check', fn() => response()->json(['ok' => true]));
 
@@ -173,6 +176,32 @@ class MiddlewareBehaviorTest extends TestCase
         $this->withHeader('Authorization', 'Bearer ' . $token)
             ->getJson('/api/_caronte/role-check')
             ->assertStatus(403);
+    }
+
+    public function test_web_session_middleware_preserves_application_permission_error_detail(): void
+    {
+        $token = $this->makeToken([
+            'uri_user' => 'user-1',
+            'name' => 'Foreign App User',
+            'email' => 'foreign@example.com',
+            'id_tenant' => 'tenant-1',
+            'roles' => [
+                [
+                    'name' => 'viewer',
+                    'app_id' => 'other-app-id',
+                    'uri_applicationRole' => sha1('other-app-id' . 'viewer'),
+                ],
+            ],
+            'metadata' => [],
+        ]);
+
+        $this->withSession([(string) config('caronte.session_key', 'caronte.user_token') => $token])
+            ->from('/dashboard')
+            ->get('/_caronte/session-check')
+            ->assertRedirect('/login')
+            ->assertSessionHasErrors([
+                'general' => 'User does not have access to this application.',
+            ]);
     }
 
     public function test_application_access_middleware_accepts_tokens_with_required_permission(): void

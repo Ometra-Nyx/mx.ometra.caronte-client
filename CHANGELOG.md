@@ -11,6 +11,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - No changes yet.
 
+## [3.5.0] - 2026-05-13 "Waypoint"
+
+### Added
+
+- **Pending tenant-selection login state** — web login now stores a short-lived pending login context when Caronte responds with `tenant_selection_required`, allowing the tenant-selection step to complete without re-entering credentials.
+
+### Changed
+
+- **Tenant selection UX (Blade + Inertia)** — login views now switch into tenant-selection mode by pre-filling and locking the email field, hiding password input, and requiring tenant selection when pending login context is available.
+- **Auth API login payload support** — `AuthApi::login()` now accepts `tenant_selection_token` and forwards it to `api/auth/login` when present.
+- **Conflict response coverage** — `AuthController` and `CaronteResponse` flow now consistently returns/propagates tenant-selection conflict details for both JSON and web interactions.
+
+### Fixed
+
+- **Second-step login retry friction** — users no longer need to resend password on the tenant-selection retry after a `409 tenant_selection_required` response.
+
+## [3.4.0] - 2026-05-11
+
+### Added
+
+- **Tenant API client** — new `TenantApi` class with tenant listing and detail helpers:
+    - `TenantApi::listTenants()`
+    - `TenantApi::showTenant()`
+- **Tenant management Artisan commands**:
+    - `caronte:tenants:list`
+    - `caronte:tenants:show`
+- **Interactive admin menu integration** — `ManagementCaronte` now exposes tenant management commands from the interactive console flow.
+
+### Changed
+
+- **User listing command options** — `caronte:users:list` now supports `--app-users` as the explicit flag for app users. `--all` is retained as a deprecated alias for backwards compatibility.
+- **Users table output** — tenant information is now included in command output.
+- **Users API forwarding** — list command forwards the correct `app_users` parameter to the API client.
+- **Test coverage updates** — `tests/Feature/CommandBehaviorTest.php` now covers tenant commands, tenant column output, and `--app-users` behavior.
+
+## [3.3.1] - 2026-05-11
+
+### Fixed
+
+- **Users metadata migration compatibility across Laravel 10/11/12** — `database/migrations/user_metadata_table.php` now resolves primary key metadata without relying on Doctrine DBAL-only APIs. The migration first uses the schema builder `getIndexes()` API when available and falls back to native MySQL/MariaDB `SHOW INDEX` introspection when needed, preventing failures on newer Laravel versions where deprecated Doctrine schema-manager methods are unavailable.
+
 ## [3.3.0] - 2026-05-07 "Chronos"
 
 ### Added
