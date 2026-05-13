@@ -10,6 +10,14 @@ This file tracks only unresolved items for the SDK package.
 
 The SDK uses hardcoded Caronte API paths without a version prefix. Breaking server API changes still require a coordinated SDK release.
 
+### OQ-HOST-INFRA: Host application runtime defaults
+
+This package relies on host-app choices for cache store, queue connection, and database engine. Documentation assumes Laravel defaults unless host policies override them.
+
+### OQ-BRANCH-MAINLINE: Mainline branch naming
+
+Repository automation currently references both `main` and `master` in different places. Release and CI branch policies should be unified to avoid confusion.
+
 ---
 
 ## Assumptions

@@ -83,6 +83,14 @@ When `caronte.update_local_user=true`, the package updates the local `CaronteUse
 
 The resolver depends on a valid user JWT in the current request/session. If no user token is available, or if the token has no tenant claim, tenant resolution fails with the same auth/tenant exception path used by `Caronte::getTenantId()`.
 
+In `single` tenancy mode (`caronte.tenancy.mode=single`), the configured `caronte.tenancy.tenant_id` is mandatory and enforced in:
+
+- `AuthController` login path
+- `ValidateUserToken` middleware
+- `ResolveApplicationContext` middleware
+
+Any mismatch returns `403` and clears invalid user context when applicable.
+
 Local `CaronteUser` rows use `id_tenant` as the Bee Hive tenant key. During local user sync, the SDK temporarily binds `TenantContext` to the token tenant so `BelongsToTenant` writes and reads the correct local tenant cache.
 
 ## Provisioning

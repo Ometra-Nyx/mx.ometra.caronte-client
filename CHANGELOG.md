@@ -11,6 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - No changes yet.
 
+## [3.6.0] - 2026-05-13 "Keystone"
+
+### Added
+
+- **Single-tenant tenancy mode** — new tenancy configuration supports `multi` and `single` operation modes through `CARONTE_TENANCY_MODE` and `CARONTE_TENANT_ID`.
+- **`CaronteTenancy` support helper** — new `Ometra\Caronte\Support\CaronteTenancy` centralizes tenant mode resolution, configured tenant access, and runtime tenant validation.
+
+### Changed
+
+- **Tenant context enforcement in auth flow** — `AuthController`, `ResolveApplicationContext`, and `ValidateUserToken` now enforce tenant consistency and return `403` when the active tenant context conflicts with token/application tenant context.
+- **Tenant-aware downstream API requests** — `CaronteHttpClient` now forwards `X-Tenant-Id` when tenant context is available, keeping server-side authorization aligned with SDK tenant resolution.
+- **Configuration and operational docs refreshed** — deployment and route documentation now include tenancy-mode guidance and tenant-context behavior.
+
+### Fixed
+
+- **Tenant mismatch hardening** — tenant mismatches that could previously pass through ambiguous context paths now fail fast with explicit forbidden responses.
+
 ## [3.5.0] - 2026-05-13 "Waypoint"
 
 ### Added

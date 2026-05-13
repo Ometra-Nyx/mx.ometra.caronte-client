@@ -29,18 +29,11 @@ abstract class CaronteHttpClient
         array $payload = [],
         array $query = [],
     ): array {
-        $tenantId = null;
-
-        if (app()->bound(TenantContext::class)) {
-            /** @var TenantContext $tenantContext */
-            $tenantContext = app(TenantContext::class);
-            $resolved = $tenantContext->get();
-            $tenantId = is_string($resolved) && trim($resolved) !== '' ? trim($resolved) : null;
-        }
-
         $headers = [
             'X-Application-Token' => $this->makeApplicationToken(),
         ];
+
+        $tenantId = $this->tenantContextId();
 
         if ($tenantId !== null) {
             $headers['X-Tenant-Id'] = $tenantId;
@@ -62,10 +55,18 @@ abstract class CaronteHttpClient
         array $payload = [],
         array $query = [],
     ): array {
-        return $this->request($method, $endpoint, $payload, $query, [
+        $headers = [
             'X-Application-Token' => $this->makeApplicationToken(),
             'X-User-Token' => Caronte::getToken()->toString(),
-        ]);
+        ];
+
+        $tenantId = $this->tenantContextId();
+
+        if ($tenantId !== null) {
+            $headers['X-Tenant-Id'] = $tenantId;
+        }
+
+        return $this->request($method, $endpoint, $payload, $query, $headers);
     }
 
     /**
@@ -77,6 +78,19 @@ abstract class CaronteHttpClient
      * Generate the X-Application-Token header value.
      */
     abstract protected function makeApplicationToken(): string;
+
+    private function tenantContextId(): ?string
+    {
+        if (! app()->bound(TenantContext::class)) {
+            return null;
+        }
+
+        /** @var TenantContext $tenantContext */
+        $tenantContext = app(TenantContext::class);
+        $resolved = $tenantContext->get();
+
+        return is_string($resolved) && trim($resolved) !== '' ? trim($resolved) : null;
+    }
 
     /**
      * Execute the HTTP request and return parsed response.

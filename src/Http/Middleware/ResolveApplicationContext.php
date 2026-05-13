@@ -3,12 +3,12 @@
 namespace Ometra\Caronte\Http\Middleware;
 
 use Closure;
-use Equidna\BeeHive\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Ometra\Caronte\Facades\Caronte;
 use Ometra\Caronte\Support\CaronteApplicationToken;
 use Ometra\Caronte\Support\CaronteApplicationContext;
 use Ometra\Caronte\Support\CaronteResponse;
+use Ometra\Caronte\Support\CaronteTenancy;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -61,6 +61,28 @@ class ResolveApplicationContext
         $tenantId = trim((string) $request->header('X-Tenant-Id'));
         $authenticatedTenantId = static::authenticatedTenantId();
 
+        if (CaronteTenancy::isSingleTenant()) {
+            $configuredTenantId = CaronteTenancy::requireConfiguredTenantId();
+
+            if ($tenantId !== '' && $tenantId !== $configuredTenantId) {
+                return CaronteResponse::forbidden(
+                    message: 'Tenant mismatch.',
+                    errors: ['Tenant mismatch.']
+                );
+            }
+
+            if ($authenticatedTenantId !== null && $authenticatedTenantId !== $configuredTenantId) {
+                return CaronteResponse::forbidden(
+                    message: 'Tenant mismatch.',
+                    errors: ['Tenant mismatch.']
+                );
+            }
+
+            CaronteTenancy::bindTenantContext($configuredTenantId);
+
+            return null;
+        }
+
         if ($authenticatedTenantId !== null) {
             if ($tenantId !== '' && $tenantId !== $authenticatedTenantId) {
                 return CaronteResponse::forbidden(
@@ -81,9 +103,7 @@ class ResolveApplicationContext
                 : null;
         }
 
-        $tenantContext = new TenantContext();
-        $tenantContext->set($tenantId);
-        app()->instance(TenantContext::class, $tenantContext);
+        CaronteTenancy::bindTenantContext($tenantId);
 
         return null;
     }

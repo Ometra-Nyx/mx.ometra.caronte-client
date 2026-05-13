@@ -31,6 +31,7 @@ use Ometra\Caronte\Http\Middleware\ValidateUserToken;
 use Ometra\Caronte\Notifications\PasswordRecoverySender;
 use Ometra\Caronte\Notifications\TwoFactorChallengeSender;
 use Ometra\Caronte\Support\ConfiguredRoles;
+use Ometra\Caronte\Support\CaronteTenancy;
 use InvalidArgumentException;
 
 class CaronteServiceProvider extends ServiceProvider
@@ -200,6 +201,7 @@ class CaronteServiceProvider extends ServiceProvider
             );
         }
 
+        CaronteTenancy::validateConfig();
         ConfiguredRoles::validate();
     }
 

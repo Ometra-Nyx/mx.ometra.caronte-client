@@ -50,7 +50,13 @@ class MiddlewareBehaviorTest extends TestCase
             ->get('/api/_caronte/session-check', fn() => response()->json(['ok' => true]));
 
         Route::middleware(['web', 'caronte.session'])
-            ->get('/_caronte/session-check', fn() => response('ok'));
+            ->get('/_caronte/session-check', function () {
+                return response()->json([
+                    'tenant_context' => app()->bound(TenantContext::class)
+                        ? app(TenantContext::class)->get()
+                        : null,
+                ]);
+            });
 
         Route::middleware(['caronte.session', 'caronte.roles:admin'])
             ->get('/api/_caronte/role-check', fn() => response()->json(['ok' => true]));
@@ -118,6 +124,32 @@ class MiddlewareBehaviorTest extends TestCase
             ->assertOk()
             ->assertJsonPath('tenant_context', 'tenant-1')
             ->assertJsonPath('app_id', CaronteApplicationToken::appId());
+    }
+
+    public function test_single_tenant_application_middleware_binds_configured_tenant_without_header(): void
+    {
+        config()->set('caronte.tenancy.mode', 'single');
+        config()->set('caronte.tenancy.tenant_id', 'mobig');
+
+        $this->getJson('/api/_caronte/context-check', [
+            'X-Application-Token' => CaronteApplicationToken::make(),
+        ])
+            ->assertOk()
+            ->assertJsonPath('tenant_context', 'mobig')
+            ->assertJsonPath('app_id', CaronteApplicationToken::appId());
+    }
+
+    public function test_single_tenant_application_middleware_rejects_header_mismatch(): void
+    {
+        config()->set('caronte.tenancy.mode', 'single');
+        config()->set('caronte.tenancy.tenant_id', 'mobig');
+
+        $this->getJson('/api/_caronte/application-only-check', [
+            'X-Application-Token' => CaronteApplicationToken::make(),
+            'X-Tenant-Id' => 'other-tenant',
+        ])
+            ->assertStatus(403)
+            ->assertJsonPath('message', 'Tenant mismatch.');
     }
 
     public function test_application_middleware_rejects_header_that_overrides_authenticated_tenant(): void
@@ -201,7 +233,75 @@ class MiddlewareBehaviorTest extends TestCase
             ->assertRedirect('/login')
             ->assertSessionHasErrors([
                 'general' => 'User does not have access to this application.',
-            ]);
+            ])
+            ->assertSessionMissing((string) config('caronte.session_key', 'caronte.user_token'));
+    }
+
+    public function test_single_tenant_session_middleware_binds_configured_tenant(): void
+    {
+        config()->set('caronte.tenancy.mode', 'single');
+        config()->set('caronte.tenancy.tenant_id', 'mobig');
+
+        $token = $this->makeToken([
+            'uri_user' => 'user-1',
+            'name' => 'Mobig User',
+            'email' => 'mobig@example.com',
+            'id_tenant' => 'mobig',
+            'roles' => [
+                [
+                    'name' => 'root',
+                    'app_id' => CaronteApplicationToken::appId(),
+                    'uri_applicationRole' => sha1(CaronteApplicationToken::appId() . 'root'),
+                ],
+            ],
+            'metadata' => [],
+        ]);
+
+        $this->withSession([(string) config('caronte.session_key', 'caronte.user_token') => $token])
+            ->getJson('/_caronte/session-check')
+            ->assertOk()
+            ->assertJsonPath('tenant_context', 'mobig');
+    }
+
+    public function test_single_tenant_session_middleware_rejects_token_without_tenant(): void
+    {
+        config()->set('caronte.tenancy.mode', 'single');
+        config()->set('caronte.tenancy.tenant_id', 'mobig');
+
+        $token = $this->makeToken([
+            'uri_user' => 'user-1',
+            'name' => 'Global User',
+            'email' => 'global@example.com',
+            'id_tenant' => null,
+            'roles' => [
+                [
+                    'name' => 'root',
+                    'app_id' => CaronteApplicationToken::appId(),
+                    'uri_applicationRole' => sha1(CaronteApplicationToken::appId() . 'root'),
+                ],
+            ],
+            'metadata' => [],
+        ]);
+
+        $this->withSession([(string) config('caronte.session_key', 'caronte.user_token') => $token])
+            ->getJson('/_caronte/session-check')
+            ->assertStatus(403)
+            ->assertJsonPath('message', 'Tenant is required for this application.')
+            ->assertSessionMissing((string) config('caronte.session_key', 'caronte.user_token'));
+    }
+
+    public function test_single_tenant_session_middleware_rejects_token_tenant_mismatch(): void
+    {
+        config()->set('caronte.tenancy.mode', 'single');
+        config()->set('caronte.tenancy.tenant_id', 'mobig');
+
+        $token = $this->makeToken();
+
+        $this->withSession([(string) config('caronte.session_key', 'caronte.user_token') => $token])
+            ->getJson('/_caronte/session-check')
+            ->assertStatus(403)
+            ->assertJsonPath('message', 'Tenant mismatch.')
+            ->assertSessionMissing((string) config('caronte.session_key', 'caronte.user_token'));
     }
 
     public function test_application_access_middleware_accepts_tokens_with_required_permission(): void
