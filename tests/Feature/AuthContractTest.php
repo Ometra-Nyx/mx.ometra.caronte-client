@@ -67,6 +67,7 @@ class AuthContractTest extends TestCase
                         ['tenant_id' => 'tenant-a', 'name' => 'Tenant A', 'global' => false],
                         ['tenant_id' => 'tenant-b', 'name' => 'Tenant B', 'global' => false],
                     ],
+                    'tenant_selection_token' => 'selection-token',
                 ],
             ], 409),
         ]);
@@ -78,7 +79,12 @@ class AuthContractTest extends TestCase
 
         $response->assertRedirect('/login');
         $response->assertSessionHas('data.tenants.0.tenant_id', 'tenant-a');
-        $response->assertSessionHasErrors(['code']);
+        $response->assertSessionHas('info', 'Select a tenant to continue.');
+        $response->assertSessionHasNoErrors();
+        $this->assertSame(
+            'selection-token',
+            session('caronte.pending_login.tenant_selection_token')
+        );
     }
 
     public function test_login_sends_selected_tenant_to_caronte(): void
@@ -103,7 +109,64 @@ class AuthContractTest extends TestCase
             return $request->url() === 'https://caronte.test/api/auth/login'
                 && $request['email'] === 'shared@example.com'
                 && $request['password'] === 'Password123!'
-                && $request['tenant_id'] === 'tenant-b';
+                && ($request['tenant_id'] ?? null) === 'tenant-b';
+        });
+    }
+
+    public function test_login_uses_pending_credentials_when_tenant_is_selected(): void
+    {
+        $token = $this->makeToken();
+
+        Http::fake(function ($request) use ($token) {
+            if ($request->url() !== 'https://caronte.test/api/auth/login') {
+                return Http::response([], 404);
+            }
+
+            if (
+                ($request['tenant_id'] ?? null) === 'tenant-b'
+                && ($request['tenant_selection_token'] ?? null) === 'selection-token'
+                && ! array_key_exists('password', $request->data())
+            ) {
+                return Http::response([
+                    'status' => 200,
+                    'message' => 'Token generated',
+                    'data' => ['token' => $token],
+                ], 200);
+            }
+
+            return Http::response([
+                'status' => 409,
+                'message' => 'Tenant selection required.',
+                'errors' => [
+                    'code' => 'tenant_selection_required',
+                    'tenants' => [
+                        ['tenant_id' => 'tenant-a', 'name' => 'Tenant A', 'global' => false],
+                        ['tenant_id' => 'tenant-b', 'name' => 'Tenant B', 'global' => false],
+                    ],
+                    'tenant_selection_token' => 'selection-token',
+                ],
+            ], 409);
+        });
+
+        $this->post('/login', [
+            'email' => 'shared@example.com',
+            'password' => 'Password123!',
+        ])->assertRedirect('/login');
+
+        $this->post('/login', [
+            'email' => 'shared@example.com',
+            'tenant_id' => 'tenant-b',
+        ])->assertRedirect('/');
+
+        $this->assertSame($token, session(config('caronte.session_key')));
+        $this->assertFalse(session()->has('caronte.pending_login'));
+
+        Http::assertSent(function ($request): bool {
+            return $request->url() === 'https://caronte.test/api/auth/login'
+                && $request['email'] === 'shared@example.com'
+                && ($request['tenant_id'] ?? null) === 'tenant-b'
+                && ($request['tenant_selection_token'] ?? null) === 'selection-token'
+                && ! array_key_exists('password', $request->data());
         });
     }
 
@@ -274,6 +337,20 @@ class AuthContractTest extends TestCase
             'routes' => $routes,
             'callback_url' => null,
         ])->render());
+
+        $tenantSelectionHtml = view('caronte::auth.login', [
+            'routes' => $routes,
+            'callback_url' => null,
+            'tenant_options' => [
+                ['tenant_id' => 'tenant-a', 'name' => 'Tenant A'],
+            ],
+            'pending_login' => [
+                'email' => 'shared@example.com',
+            ],
+        ])->render();
+
+        $this->assertStringContainsString('readonly', $tenantSelectionHtml);
+        $this->assertStringNotContainsString('name="password"', $tenantSelectionHtml);
 
         $this->assertStringContainsString('Password recovery', view('caronte::auth.password-recover-request', [
             'routes' => $routes,

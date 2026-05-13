@@ -2,6 +2,8 @@
 
 @php($branding = $branding ?? config('caronte.ui.branding', []))
 @php($tenantOptions = $tenant_options ?? [])
+@php($pendingLogin = is_array($pending_login ?? null) ? $pending_login : null)
+@php($isTenantSelection = !empty($tenantOptions) && is_array($pendingLogin) && !empty($pendingLogin['email']))
 
 @section('content')
     <section class="caronte-auth">
@@ -24,13 +26,24 @@
 
                     <div>
                         <label for="email" class="form-label">Email</label>
-                        <input id="email" type="email" name="email" value="{{ old('email') }}" class="form-control" required autofocus>
+                        <input
+                            id="email"
+                            type="email"
+                            name="email"
+                            value="{{ $isTenantSelection ? $pendingLogin['email'] : old('email') }}"
+                            class="form-control"
+                            required
+                            @readonly($isTenantSelection)
+                            autofocus
+                        >
                     </div>
 
-                    <div>
-                        <label for="password" class="form-label">Password</label>
-                        <input id="password" type="password" name="password" class="form-control" required>
-                    </div>
+                    @unless ($isTenantSelection)
+                        <div>
+                            <label for="password" class="form-label">Password</label>
+                            <input id="password" type="password" name="password" class="form-control" required>
+                        </div>
+                    @endunless
 
                     @if (!empty($tenantOptions))
                         <div>

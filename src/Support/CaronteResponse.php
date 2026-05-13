@@ -224,9 +224,14 @@ class CaronteResponse
     private static function redirectErrors(array $errors): array
     {
         $redirectErrors = [];
+        $generalErrors = [];
 
         foreach ($errors as $key => $value) {
             if (! is_string($key)) {
+                if (is_string($value)) {
+                    $generalErrors[] = $value;
+                }
+
                 continue;
             }
 
@@ -241,6 +246,10 @@ class CaronteResponse
             ) {
                 $redirectErrors[$key] = $value;
             }
+        }
+
+        if ($generalErrors !== []) {
+            $redirectErrors['general'] = $generalErrors;
         }
 
         return $redirectErrors === [] ? ['general' => ['Request failed.']] : $redirectErrors;

@@ -6,6 +6,9 @@ type LoginProps = {
   branding?: Branding;
   csrf_token?: string;
   tenant_options?: TenantOption[];
+  pending_login?: {
+    email: string;
+  } | null;
 };
 
 export default function Login({
@@ -14,7 +17,10 @@ export default function Login({
   branding = {},
   csrf_token,
   tenant_options = [],
+  pending_login = null,
 }: LoginProps) {
+  const isTenantSelection = tenant_options.length > 0 && pending_login !== null;
+
   return (
     <section className="caronte-auth">
       <div className="caronte-auth__panel">
@@ -50,22 +56,26 @@ export default function Login({
                 type="email"
                 name="email"
                 className="form-control"
+                defaultValue={isTenantSelection ? pending_login?.email : undefined}
+                readOnly={isTenantSelection}
                 required
               />
             </div>
 
-            <div>
-              <label htmlFor="password" className="form-label">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                name="password"
-                className="form-control"
-                required
-              />
-            </div>
+            {!isTenantSelection ? (
+              <div>
+                <label htmlFor="password" className="form-label">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  name="password"
+                  className="form-control"
+                  required
+                />
+              </div>
+            ) : null}
 
             {tenant_options.length > 0 ? (
               <div>

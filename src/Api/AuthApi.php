@@ -9,15 +9,27 @@ class AuthApi
     /**
      * @return array{status: int, message: string, data: mixed, errors: array<int|string, mixed>}
      */
-    public static function login(string $email, string $password, ?string $tenantId = null): array
+    public static function login(
+        string $email,
+        ?string $password = null,
+        ?string $tenantId = null,
+        ?string $tenantSelectionToken = null
+    ): array
     {
         $payload = [
             'email' => $email,
-            'password' => $password,
         ];
+
+        if (is_string($password) && $password !== '') {
+            $payload['password'] = $password;
+        }
 
         if (is_string($tenantId) && trim($tenantId) !== '') {
             $payload['tenant_id'] = trim($tenantId);
+        }
+
+        if (is_string($tenantSelectionToken) && trim($tenantSelectionToken) !== '') {
+            $payload['tenant_selection_token'] = trim($tenantSelectionToken);
         }
 
         return app(CaronteApiClient::class)->authRequest(
