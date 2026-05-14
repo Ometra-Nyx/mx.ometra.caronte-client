@@ -9,6 +9,7 @@
 namespace Ometra\Caronte\Models;
 
 use Equidna\BeeHive\Traits\BelongsToTenant;
+use Equidna\Toolkit\Traits\Database\HasCompositePrimaryKey;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -23,16 +24,17 @@ use Illuminate\Database\Eloquent\Model;
 class CaronteUser extends Model
 {
     use BelongsToTenant;
+    use HasCompositePrimaryKey;
 
     protected $table;
-    protected $primaryKey = 'uri_user';
+    protected $primaryKey = ['uri_user', 'tenant_id'];
     protected $keyType    = 'string';
 
     public $timestamps   = false;
     public $incrementing = false;
 
     protected $fillable = [
-        'id_tenant',
+        'tenant_id',
         'uri_user',
         'name',
         'email'
@@ -40,7 +42,7 @@ class CaronteUser extends Model
 
     protected $hidden = [];
 
-    protected string $tenantKey = 'id_tenant';
+    protected string $tenantKey = 'tenant_id';
 
     /**
      * Initialize the model.
@@ -58,7 +60,8 @@ class CaronteUser extends Model
      */
     public function metadata(): HasMany
     {
-        return $this->hasMany(CaronteUserMetadata::class, 'uri_user');
+        return $this->hasMany(CaronteUserMetadata::class, 'uri_user')
+            ->where('tenant_id', $this->tenant_id);
     }
 
     /**

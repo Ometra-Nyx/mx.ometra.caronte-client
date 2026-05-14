@@ -68,18 +68,20 @@ class ResolvedOpenQuestionsTest extends TestCase
         Schema::dropIfExists('Users');
 
         Schema::create('Users', function (Blueprint $table): void {
-            $table->string('id_tenant', 64)->nullable()->index();
-            $table->string('uri_user', 40)->primary();
+            $table->string('uri_user', 40);
+            $table->string('tenant_id', 64)->index();
             $table->string('name', 150);
             $table->string('email', 150);
+            $table->primary(['uri_user', 'tenant_id']);
         });
 
         Schema::create('UsersMetadata', function (Blueprint $table): void {
             $table->string('uri_user', 40);
+            $table->string('tenant_id', 64);
             $table->string('scope');
             $table->string('key');
             $table->text('value')->nullable();
-            $table->primary(['uri_user', 'scope', 'key']);
+            $table->primary(['uri_user', 'tenant_id', 'scope', 'key']);
         });
 
         $tenantContext = new TenantContext();
@@ -87,7 +89,7 @@ class ResolvedOpenQuestionsTest extends TestCase
         app()->instance(TenantContext::class, $tenantContext);
 
         CaronteUser::create([
-            'id_tenant' => 'tenant-1',
+            'tenant_id' => 'tenant-1',
             'uri_user' => 'user-1',
             'name' => 'Jane Doe',
             'email' => 'jane@example.com',
@@ -95,6 +97,7 @@ class ResolvedOpenQuestionsTest extends TestCase
 
         DB::table('UsersMetadata')->insert([
             'uri_user' => 'user-1',
+            'tenant_id' => 'tenant-1',
             'scope' => 'app-1',
             'key' => 'theme',
             'value' => 'dark',

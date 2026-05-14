@@ -194,7 +194,7 @@ class MiddlewareBehaviorTest extends TestCase
             'uri_user' => 'user-1',
             'name' => 'Viewer',
             'email' => 'viewer@example.com',
-            'id_tenant' => 'tenant-1',
+            'tenant_id' => 'tenant-1',
             'roles' => [
                 [
                     'name' => 'rootless',
@@ -216,7 +216,7 @@ class MiddlewareBehaviorTest extends TestCase
             'uri_user' => 'user-1',
             'name' => 'Foreign App User',
             'email' => 'foreign@example.com',
-            'id_tenant' => 'tenant-1',
+            'tenant_id' => 'tenant-1',
             'roles' => [
                 [
                     'name' => 'viewer',
@@ -246,7 +246,7 @@ class MiddlewareBehaviorTest extends TestCase
             'uri_user' => 'user-1',
             'name' => 'Mobig User',
             'email' => 'mobig@example.com',
-            'id_tenant' => 'mobig',
+            'tenant_id' => 'mobig',
             'roles' => [
                 [
                     'name' => 'root',
@@ -272,7 +272,7 @@ class MiddlewareBehaviorTest extends TestCase
             'uri_user' => 'user-1',
             'name' => 'Global User',
             'email' => 'global@example.com',
-            'id_tenant' => null,
+            'tenant_id' => null,
             'roles' => [
                 [
                     'name' => 'root',

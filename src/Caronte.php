@@ -62,11 +62,11 @@ final class Caronte
     {
         $user = $this->getUser();
 
-        if (!isset($user->id_tenant) || $user->id_tenant === null || $user->id_tenant === '') {
+        if (!isset($user->tenant_id) || $user->tenant_id === null || $user->tenant_id === '') {
             throw new TenantMissingException('No tenant provided');
         }
 
-        return (string) $user->id_tenant;
+        return (string) $user->tenant_id;
     }
 
     public static function getRouteUser(): string
@@ -118,18 +118,22 @@ final class Caronte
         }
 
         try {
-            $tenantId = isset($user->id_tenant) && $user->id_tenant !== ''
-                ? (string) $user->id_tenant
+            $tenantId = isset($user->tenant_id) && $user->tenant_id !== ''
+                ? (string) $user->tenant_id
                 : null;
+
+            if ($tenantId === null) {
+                return;
+            }
 
             $localUser = static::withTenantContext(
                 $tenantId,
                 fn(): CaronteUser => CaronteUser::withoutGlobalScopes()->updateOrCreate(
                     [
                         'uri_user' => $user->uri_user,
+                        'tenant_id' => $tenantId,
                     ],
                     [
-                        'id_tenant' => $tenantId,
                         'name' => $user->name,
                         'email' => $user->email,
                     ]
@@ -146,11 +150,12 @@ final class Caronte
                 $localUser->metadata()->updateOrCreate(
                     [
                         'uri_user' => $user->uri_user,
+                        'tenant_id' => $tenantId,
+                        'scope' => $item->scope ?? \Ometra\Caronte\Support\CaronteApplicationToken::appId(),
                         'key' => $item->key,
                     ],
                     [
                         'value' => $item->value ?? null,
-                        'scope' => $item->scope ?? \Ometra\Caronte\Support\CaronteApplicationToken::appId(),
                     ]
                 );
             }

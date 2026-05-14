@@ -75,7 +75,7 @@ abstract class TestCase extends Orchestra
             'uri_user' => 'user-123',
             'name' => 'Root User',
             'email' => 'root@example.com',
-            'id_tenant' => 'tenant-1',
+            'tenant_id' => 'tenant-1',
             'roles' => [
                 [
                     'name' => 'root',
@@ -103,8 +103,7 @@ abstract class TestCase extends Orchestra
             ->issuedAt($issuedAt)
             ->canOnlyBeUsedAfter($issuedAt)
             ->expiresAt($expiresAt)
-            ->withClaim('tenant_id', $user['tenant_id'] ?? $user['id_tenant'] ?? null)
-            ->withClaim('id_tenant', $user['id_tenant'] ?? $user['tenant_id'] ?? null)
+            ->withClaim('tenant_id', $user['tenant_id'] ?? null)
             ->withClaim('name', $user['name'])
             ->withClaim('email', $user['email'])
             ->withClaim('roles', $user['roles'])
@@ -150,8 +149,7 @@ abstract class TestCase extends Orchestra
             ->expiresAt($expiresAt)
             ->withClaim('token_audience', 'application')
             ->withClaim('app_id', CaronteApplicationToken::appId())
-            ->withClaim('tenant_id', $user['tenant_id'] ?? $user['id_tenant'] ?? null)
-            ->withClaim('id_tenant', $user['id_tenant'] ?? $user['tenant_id'] ?? null)
+            ->withClaim('tenant_id', $user['tenant_id'] ?? null)
             ->withClaim('name', $user['name'])
             ->withClaim('email', $user['email'])
             ->withClaim('roles', $user['roles'])
@@ -165,10 +163,7 @@ abstract class TestCase extends Orchestra
      */
     private function subjectForTokenUser(array $user): string
     {
-        $uriUser = (string) ($user['uri_user'] ?? '');
-        $tenantId = (string) ($user['tenant_id'] ?? $user['id_tenant'] ?? '');
-
-        return $tenantId !== '' ? $tenantId . ':' . $uriUser : $uriUser;
+        return (string) ($user['uri_user'] ?? '');
     }
 
     /**

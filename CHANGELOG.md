@@ -11,6 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - No changes yet.
 
+## [4.0.0] - 2026-05-14 "Northstar"
+
+### Breaking Changes
+
+- **Tenant key normalized to `tenant_id` in persistence and domain code** — local user and metadata persistence now use `tenant_id` as the canonical tenant field, replacing legacy `id_tenant` assumptions in package internals.
+- **Composite primary keys enforced for tenant scoping** — `Users` now uses `['uri_user', 'tenant_id']` and `UsersMetadata` now uses `['uri_user', 'tenant_id', 'scope', 'key']`. Host-side custom queries or scripts that assumed `uri_user` alone was globally unique must be updated.
+
+See `BREAKING_CHANGES.md` for migration guidance.
+
+### Added
+
+- **Tenant-aware composite key persistence model** — package models now use composite keys for tenant-safe reads/writes (`CaronteUser`, `CaronteUserMetadata`).
+- **Migration backfill path for legacy rows** — migrations populate `tenant_id` from legacy `id_tenant` (Users table) or configured tenancy defaults (UsersMetadata table) when needed.
+
+### Changed
+
+- **Tenant key naming consistency** — core runtime flows (`Caronte`, `CaronteUserToken`, `CaronteUserHelper`, `ListUsers`) are aligned on `tenant_id`.
+- **Local user sync hardening** — local `updateUserData()` now persists users and metadata using tenant-scoped composite identity.
+- **Schema evolution behavior** — migration upgrade paths now enforce/repair expected primary keys for metadata without relying on deprecated DBAL-only APIs.
+
+### Fixed
+
+- **Cross-tenant metadata leakage risk reduced** — metadata lookup and user relationship queries now consistently apply tenant scoping with `tenant_id`.
+- **Tenant-scoped user listing output consistency** — command output and API payload handling now consistently reference `tenant_id`.
+
 ## [3.6.0] - 2026-05-13 "Keystone"
 
 ### Added

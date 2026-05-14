@@ -9,6 +9,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -18,7 +19,7 @@ return new class extends Migration
      *
      * @var list<string>
      */
-    private array $expectedPrimaryColumns = ['uri_user', 'scope', 'key'];
+    private array $expectedPrimaryColumns = ['uri_user', 'tenant_id', 'scope', 'key'];
 
     /**
      * Run the migrations.
@@ -30,10 +31,11 @@ return new class extends Migration
         if (!Schema::hasTable($tableName)) {
             Schema::create($tableName, function (Blueprint $table) {
                 $table->string('uri_user', 40);
+                $table->string('tenant_id', 64);
                 $table->string('scope', 128);
                 $table->string('key', 45);
                 $table->string('value', 45);
-                $table->primary(['uri_user', 'scope', 'key']);
+                $table->primary(['uri_user', 'tenant_id', 'scope', 'key']);
                 $table->engine = 'InnoDB';
             });
         } else {
@@ -43,6 +45,9 @@ return new class extends Migration
                     $table->string('uri_user', 40);
                 } else {
                     $table->string('uri_user', 40)->change();
+                }
+                if (!Schema::hasColumn($tableName, 'tenant_id')) {
+                    $table->string('tenant_id', 64)->nullable();
                 }
                 if (!Schema::hasColumn($tableName, 'scope')) {
                     $table->string('scope', 128);
@@ -61,6 +66,12 @@ return new class extends Migration
                 }
                 $table->engine = 'InnoDB';
             });
+
+            if (Schema::hasColumn($tableName, 'tenant_id')) {
+                DB::table($tableName)
+                    ->whereNull('tenant_id')
+                    ->update(['tenant_id' => (string) config('caronte.tenancy.tenant_id', 'default')]);
+            }
 
             $currentPrimaryColumns = $this->getPrimaryColumns($tableName);
 
