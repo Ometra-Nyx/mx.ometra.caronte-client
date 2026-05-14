@@ -1,3 +1,57 @@
+# Release v4.0.0 "Northstar"
+
+> **Release date:** 2026-05-14
+> **Type:** Major — tenant identity model and persistence semantics update.
+
+---
+
+## Summary
+
+v4.0.0 "Northstar" unifies tenant identity semantics across the SDK by standardizing on `tenant_id` and enforcing tenant-aware composite primary keys for local user persistence. This release closes ambiguity around legacy tenant field naming, strengthens tenant isolation in metadata/user lookups, and aligns token-driven user sync with deterministic tenant-scoped identity.
+
+The codename _Northstar_ reflects the release goal: a single, reliable reference point for tenant identity across all persistence and helper paths.
+
+---
+
+## Highlights
+
+- **Canonical tenant key** — package internals now consistently use `tenant_id` in models, helpers, command output, and local sync.
+- **Composite keys for tenant-safe identity** — `Users` and `UsersMetadata` now rely on tenant-aware composite primary keys.
+- **Migration compatibility path** — upgrade migrations backfill missing `tenant_id` values from legacy data/default tenancy context when possible.
+- **Tenant-scoped metadata/user access hardening** — helper and relationship queries now consistently constrain by tenant.
+
+---
+
+## Added
+
+- Composite-key model configuration via `HasCompositePrimaryKey` for user and metadata entities.
+- Migration logic to fill missing `tenant_id` values during upgrades.
+
+## Changed
+
+- `Caronte::updateUserData()` now upserts users/metadata against composite tenant-scoped identity.
+- `CaronteUserToken` explicit payload mapping and downstream flows align with `tenant_id`.
+- `CaronteUserHelper` and `caronte:users:list` output/queries are aligned on `tenant_id`.
+
+## Fixed
+
+- Reduced risk of cross-tenant data collisions in local user metadata persistence and lookup paths.
+- Improved consistency of tenant key usage across runtime, migrations, and CLI surfaces.
+
+## Breaking
+
+- Host custom code that still references `id_tenant` or assumes `uri_user` alone is globally unique must be updated.
+- See migration steps in [BREAKING_CHANGES.md](BREAKING_CHANGES.md).
+
+---
+
+## Full History
+
+See [CHANGELOG.md](CHANGELOG.md) for complete project history.
+See [BREAKING_CHANGES.md](BREAKING_CHANGES.md) for migration guidance.
+
+---
+
 # Release v3.6.0 "Keystone"
 
 > **Release date:** 2026-05-13

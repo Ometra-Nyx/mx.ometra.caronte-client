@@ -1,5 +1,65 @@
 # Breaking Changes
 
+## v4.0.0
+
+### What Changed
+
+1. **Tenant key standardized to `tenant_id`** — package internals now treat `tenant_id` as the canonical tenant field for users, metadata, helpers, and command output.
+2. **Composite primary keys are now required for tenant-safe identity**:
+    - `Users`: `['uri_user', 'tenant_id']`
+    - `UsersMetadata`: `['uri_user', 'tenant_id', 'scope', 'key']`
+3. **Model identity semantics changed** — `CaronteUser` and `CaronteUserMetadata` use `HasCompositePrimaryKey`; host customizations relying on single-key assumptions must be updated.
+
+### Why
+
+Earlier behavior mixed legacy and modern tenant field naming (`id_tenant` vs `tenant_id`) and allowed single-column assumptions that are unsafe in multi-tenant contexts. This release makes tenant scoping explicit and consistent across migrations, models, helper queries, and token-derived user sync.
+
+### Migration
+
+1. Run migrations in the host application:
+
+```bash
+php artisan migrate
+```
+
+2. Update custom SQL/Eloquent code that filters on `id_tenant` to use `tenant_id`.
+
+3. Update custom logic that assumes `uri_user` is globally unique. Use composite identity:
+
+```php
+// Before
+$user = CaronteUser::query()->where('uri_user', $uriUser)->first();
+
+// After
+$user = CaronteUser::query()
+    ->where('uri_user', $uriUser)
+    ->where('tenant_id', $tenantId)
+    ->first();
+```
+
+4. If your host application manually upserts metadata, include `tenant_id` in both the match and payload arrays:
+
+```php
+// Before
+CaronteUserMetadata::updateOrCreate(
+    ['uri_user' => $uriUser, 'scope' => $scope, 'key' => $key],
+    ['value' => $value]
+);
+
+// After
+CaronteUserMetadata::updateOrCreate(
+    ['uri_user' => $uriUser, 'tenant_id' => $tenantId, 'scope' => $scope, 'key' => $key],
+    ['value' => $value]
+);
+```
+
+5. Verify any downstream integrations that read SDK command output now consume `tenant_id` as the tenant column key.
+
+### Notes
+
+- Migrations include a compatibility backfill path for existing rows where `tenant_id` is missing.
+- No additional environment variables are required for this release.
+
 ## v3.6.0
 
 ### Breaking status
