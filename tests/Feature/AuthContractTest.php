@@ -118,7 +118,7 @@ class AuthContractTest extends TestCase
         config()->set('caronte.tenancy.mode', 'single');
         config()->set('caronte.tenancy.tenant_id', 'mobig');
 
-        $token = $this->makeToken(['id_tenant' => 'mobig'] + [
+        $token = $this->makeToken(['tenant_id' => 'mobig'] + [
             'uri_user' => 'user-123',
             'name' => 'Root User',
             'email' => 'root@example.com',
@@ -228,23 +228,27 @@ class AuthContractTest extends TestCase
     {
         Schema::dropIfExists('Users');
         Schema::create('Users', function (Blueprint $table): void {
-            $table->string('id_tenant', 64)->nullable()->index();
-            $table->string('uri_user', 40)->primary();
+            $table->string('uri_user', 40);
+            $table->string('tenant_id', 64)->index();
             $table->string('name', 150);
             $table->string('email', 150);
+            $table->primary(['uri_user', 'tenant_id']);
         });
 
         Caronte::updateUserData((object) [
             'uri_user' => 'user-123',
             'name' => 'Root User',
             'email' => 'root@example.com',
-            'id_tenant' => 'tenant-1',
+            'tenant_id' => 'tenant-1',
             'metadata' => [],
         ]);
 
         $this->assertSame(
             'tenant-1',
-            CaronteUser::withoutGlobalScopes()->whereKey('user-123')->value('id_tenant')
+            CaronteUser::withoutGlobalScopes()
+                ->where('uri_user', 'user-123')
+                ->where('tenant_id', 'tenant-1')
+                ->value('tenant_id')
         );
     }
 
@@ -254,7 +258,7 @@ class AuthContractTest extends TestCase
             'uri_user' => 'user-claims',
             'name' => 'Legacy Name',
             'email' => 'legacy@example.com',
-            'id_tenant' => 'legacy-tenant',
+            'tenant_id' => 'legacy-tenant',
             'roles' => [],
             'metadata' => [],
         ]);
@@ -266,7 +270,6 @@ class AuthContractTest extends TestCase
         $this->assertSame('Legacy Name', $user->name);
         $this->assertSame('legacy@example.com', $user->email);
         $this->assertSame('legacy-tenant', $user->tenant_id);
-        $this->assertSame('legacy-tenant', $user->id_tenant);
     }
 
     public function test_user_payload_supports_tokens_without_legacy_user_claim(): void
@@ -500,7 +503,7 @@ class AuthContractTest extends TestCase
             'uri_user' => 'user-123',
             'name' => 'Root User',
             'email' => 'root@example.com',
-            'id_tenant' => 'mobig',
+            'tenant_id' => 'mobig',
             'roles' => [
                 [
                     'name' => 'root',

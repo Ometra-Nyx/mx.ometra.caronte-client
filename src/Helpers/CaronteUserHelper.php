@@ -13,6 +13,7 @@ use Ometra\Caronte\Models\CaronteUser;
 use Ometra\Caronte\Models\CaronteUserMetadata;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
+use Ometra\Caronte\Facades\Caronte as CaronteFacade;
 
 class CaronteUserHelper
 {
@@ -30,7 +31,7 @@ class CaronteUserHelper
     public static function getUserName(string $uri_user): string
     {
         try {
-            $user = CaronteUser::where('uri_user', $uri_user)->firstOrFail();
+            $user = static::userQuery($uri_user)->firstOrFail();
         } catch (ModelNotFoundException $e) {
             return 'User not found';
         }
@@ -47,7 +48,7 @@ class CaronteUserHelper
     public static function getUserEmail(string $uri_user): string
     {
         try {
-            $user = CaronteUser::where('uri_user', $uri_user)->firstOrFail();
+            $user = static::userQuery($uri_user)->firstOrFail();
         } catch (ModelNotFoundException $e) {
             return 'User not found';
         }
@@ -64,9 +65,39 @@ class CaronteUserHelper
      */
     public static function getUserMetadata(string $uri_user, string $key): string|null
     {
-        return DB::table((new CaronteUserMetadata())->getTable())
+        $query = DB::table((new CaronteUserMetadata())->getTable())
             ->where('uri_user', $uri_user)
-            ->where('key', $key)
-            ->value('value');
+            ->where('key', $key);
+
+        $tenantId = static::tenantId();
+
+        if ($tenantId !== null) {
+            $query->where('tenant_id', $tenantId);
+        }
+
+        return $query->value('value');
+    }
+
+    private static function userQuery(string $uriUser)
+    {
+        $query = CaronteUser::where('uri_user', $uriUser);
+        $tenantId = static::tenantId();
+
+        if ($tenantId !== null) {
+            $query->where('tenant_id', $tenantId);
+        }
+
+        return $query;
+    }
+
+    private static function tenantId(): ?string
+    {
+        try {
+            $tenantId = trim((string) CaronteFacade::getTenantId());
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return $tenantId !== '' ? $tenantId : null;
     }
 }

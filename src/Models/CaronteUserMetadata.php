@@ -24,12 +24,13 @@ class CaronteUserMetadata extends Model
     use HasCompositePrimaryKey;
 
     protected $table;
-    protected $primaryKey = ['uri_user', 'scope', 'key'];
+    protected $primaryKey = ['uri_user', 'tenant_id', 'scope', 'key'];
 
     public $timestamps = false;
 
     protected $fillable = [
         'uri_user',
+        'tenant_id',
         'key',
         'value',
         'scope'
